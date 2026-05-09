@@ -1,0 +1,25 @@
+node_modules/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Runtime uploads and generated files
+uploads/
+public/uploads/
+temp/
+routes/Output/
+dataFiles/
+
+# Local archives and backups
+*.zip
+*.rar
+*.7z
+
+# Logs and OS/editor files
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+.vscode/
