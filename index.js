@@ -361,6 +361,7 @@ app.use('/tht', require('./routes/DotPrinterRoutes'));
 app.use('/tht', require('./routes/ThermalPrinterRoutes'));
 app.use('/tht', require('./routes/PowerBankRoutes'));
 app.use('/tht', require('./routes/FaceAttendanceRoutes'));
+app.use('/tht', require('./routes/DeviceFaceAttendanceMachineRoutes'));
 app.use('/tht', require('./routes/chatbotUnknownQuestionsRouter'));
 
 // ── Face Recognition Routes  →  /api/... ─────────────────────────────────────

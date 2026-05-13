@@ -12,6 +12,14 @@ const {
 } = require("../utils/utils");
 const fs = require("fs-extra");
 const path = require("path");
+const {
+    extractUrls: extractFaqUrls,
+    getRelevantTextByKeyword,
+    getRelevantTextByEmbedding,
+    findRelevantTextForQuestion,
+    rebuildEmbeddingIndex,
+    createConciseSupportContext,
+} = require("../utils/faqEmbeddingHelper");
 const router = express.Router();
 const mammoth = require('mammoth');
 const multer = require('multer');
@@ -36,6 +44,73 @@ const pool = require("../config/db");
 // ✅ Define centralized path for Thermal Printer data
 const txtFilePath = path.join(__dirname, '/Output/Thermal Printer/extracted_text.txt');
 let extractedAllText = extractTextFromTXT(txtFilePath);
+const faqOutputDir = path.join(__dirname, "Output", "Thermal Printer");
+const faqEmbeddingConfig = {
+    outputDir: faqOutputDir,
+    productName: "Thermal Printer",
+    productSlug: "thermal_printer",
+};
+
+function answerMatchesDetectedLanguage(answer, detectedLang) {
+    if (!answer || !detectedLang) return true;
+
+    if (detectedLang === "zh") {
+        return /[\u4e00-\u9fff]/.test(answer) && !/[\u3040-\u30ff]/.test(answer);
+    }
+
+    if (detectedLang === "ja") {
+        return /[\u3040-\u30ff]/.test(answer);
+    }
+
+    return true;
+}
+
+async function rewriteAnswerInDetectedLanguage(answer, detectedLang, lastUserMsg) {
+    if (!answer || answerMatchesDetectedLanguage(answer, detectedLang)) return answer;
+
+    const languageInstruction = detectedLang === "zh"
+        ? "Rewrite the answer in Simplified Chinese only. Do not use Japanese or English except product names."
+        : detectedLang === "ja"
+            ? "Rewrite the answer in Japanese only. Do not use Chinese or English except product names."
+            : `Rewrite the answer in the same language as this user message: "${lastUserMsg}".`;
+
+    const rewriteResponse = await createChatWithRetry({
+        model: "gpt-4.1-mini",
+        messages: [
+            {
+                role: "system",
+                content: `${languageInstruction}
+Keep the meaning exactly the same.
+Do not add new information.
+Do not add the __HAS_ANSWER__ marker.`,
+            },
+            { role: "user", content: answer },
+        ],
+        max_completion_tokens: 800,
+        temperature: 0.1,
+    });
+
+    return rewriteResponse?.choices?.[0]?.message?.content?.trim() || answer;
+}
+
+async function translateQuestionForRetrieval(question, detectedLang) {
+    if (!question || !["zh", "ja"].includes(detectedLang)) return "";
+
+    const translationResponse = await createChatWithRetry({
+        model: "gpt-4.1-mini",
+        messages: [
+            {
+                role: "system",
+                content: "Translate the user's support question to concise English for FAQ search. Return only the translated question.",
+            },
+            { role: "user", content: question },
+        ],
+        max_completion_tokens: 120,
+        temperature: 0,
+    });
+
+    return translationResponse?.choices?.[0]?.message?.content?.trim() || "";
+}
 
 router.post("/chatBot/thermalPrinter/extractText", upload.single("docxFile"), async (req, res) => {
     try {
@@ -60,31 +135,17 @@ router.post("/chatBot/thermalPrinter/extractText", upload.single("docxFile"), as
         if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
 
         const outputFilePath = path.join(outputDir, "extracted_text.txt");
-
-        // Read current file (if exists)
-        let currentContent = fs.existsSync(outputFilePath)
-            ? fs.readFileSync(outputFilePath, "utf8")
-            : "";
-
         const sectionHeader = `\n\n===== ${category.toUpperCase()} SECTION =====\n`;
-
-        // Check if section exists
-        const categoryRegex = new RegExp(
-            `===== ${category.toUpperCase()} SECTION =====([\\s\\S]*?)(?=====|$)`,
-            "i"
-        );
-
-        if (categoryRegex.test(currentContent)) {
-            currentContent = currentContent.replace(categoryRegex, (match, p1) => {
-                return `${sectionHeader}${p1.trim()}\n\n${formattedText}`;
-            });
-        } else {
-            currentContent += `${sectionHeader}${formattedText}`;
-        }
+        const currentContent = `${sectionHeader}${formattedText}`;
 
         fs.writeFileSync(outputFilePath, currentContent, "utf8");
 
         extractedAllText = extractTextFromTXT(outputFilePath);
+        try {
+            await rebuildEmbeddingIndex({ ...faqEmbeddingConfig, allText: extractedAllText });
+        } catch (embeddingError) {
+            console.warn(`Thermal Printer embedding rebuild failed:`, embeddingError.message);
+        }
 
         res.json({
             success: true,
@@ -99,7 +160,7 @@ router.post("/chatBot/thermalPrinter/extractText", upload.single("docxFile"), as
     }
 });
 
-router.post('/chatBot/thermalPrinter/appendText', (req, res) => {
+router.post('/chatBot/thermalPrinter/appendText', async (req, res) => {
     const { text, category } = req.body;
 
     if (!text) {
@@ -154,6 +215,11 @@ router.post('/chatBot/thermalPrinter/appendText', (req, res) => {
 
         // ✅ Reload in-memory text (optional)
         extractedAllText = extractTextFromTXT(outputFilePath);
+        try {
+            await rebuildEmbeddingIndex({ ...faqEmbeddingConfig, allText: extractedAllText });
+        } catch (embeddingError) {
+            console.warn(`Thermal Printer embedding rebuild failed:`, embeddingError.message);
+        }
 
         console.log(`✅ Text appended to ${category.toUpperCase()} section successfully!`);
 
@@ -178,6 +244,13 @@ router.post("/chatBot/thermalPrinter/chat/gpt", async (req, res) => {
     const detectedLang = detectLanguage(lastUserMsg);
 
     try {
+        const relevantCompanyInfo = await findRelevantTextForQuestion({
+            ...faqEmbeddingConfig,
+            allText: extractedAllText,
+            question: lastUserMsg,
+            detectedLang,
+        });
+        const relevantLinks = extractFaqUrls(relevantCompanyInfo).slice(0, 5);
         const companyContext = `
 You are a helpful assistant for a brand named Grozziie. Please respond in the customer's language.
 
@@ -314,10 +387,25 @@ Answer with enough detail to be useful. For normal product or support questions,
 
 `;
 
+        const conciseCompanyContext = createConciseSupportContext({
+            productName: "Thermal Printer",
+            latestUserMessage: lastUserMsg,
+            detectedLang: detectedLang,
+            relevantText: relevantCompanyInfo,
+            relevantLinks,
+        }) + `
+Language enforcement:
+- The latest user message overrides all previous assistant messages and previous conversation language.
+- If the detected language hint is "ja", reply only in Japanese.
+- If the detected language hint is "zh", reply only in Simplified Chinese.
+- Use "Boss" for Japanese and all non-Chinese replies.
+`;
+        console.log(`Thermal Printer selected context chars:`, relevantCompanyInfo.length);
+
         // const response = await openai.chat.completions.create({
         //     model: "gpt-4-turbo",
         //     messages: [
-        //         { role: "system", content: companyContext },
+        //         { role: "system", content: conciseCompanyContext },
         //         ...messages // Inject previous conversation history
         //     ],
         //     max_tokens: 4096,
@@ -330,7 +418,7 @@ Answer with enough detail to be useful. For normal product or support questions,
                 // model: "gpt-5",
                 model: "gpt-4.1-mini",
                 messages: [
-                    { role: "system", content: companyContext },
+                    { role: "system", content: conciseCompanyContext },
                     ...messages,
                 ],
                 // max_completion_tokens: 3000,
@@ -350,10 +438,11 @@ Answer with enough detail to be useful. For normal product or support questions,
             }
 
             // 🔹 Clean the flag from final answer
-            const answer = rawAnswer
+            let answer = rawAnswer
                 .replace("__HAS_ANSWER__:true", "")
                 .replace("__HAS_ANSWER__:false", "")
                 .trim();
+            answer = await rewriteAnswerInDetectedLanguage(answer, detectedLang, lastUserMsg);
 
             // 🔹 Store only if no answer
             if (!hasAnswer) {
@@ -374,7 +463,7 @@ Answer with enough detail to be useful. For normal product or support questions,
 
             res.json({
                 answer,
-                lang: detectLanguage(answer || lastUserMsg),
+                lang: detectedLang,
             });
 
         } catch (error) {

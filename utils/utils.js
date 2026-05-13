@@ -25,10 +25,14 @@ function detectLanguage(textToDetect) {
     if (!textToDetect || typeof textToDetect !== "string") return "en";
 
     textToDetect = textToDetect.trim();
+    const normalizedText = textToDetect.toLowerCase();
+    const countLanguageTerms = (terms) => terms.reduce((count, term) => (
+        new RegExp(`\\b${term}\\b`, "i").test(normalizedText) ? count + 1 : count
+    ), 0);
 
+    if (/[\u3040-\u30ff]/.test(textToDetect)) return "ja"; // Japanese Kana; check before Chinese because Japanese often uses Kanji
     if (/[\u4e00-\u9fff]/.test(textToDetect)) return "zh"; // Chinese
     if (/[\u0E00-\u0E7F]/.test(textToDetect)) return "th"; // Thai
-    if (/[\u3040-\u30ff]/.test(textToDetect)) return "ja"; // Japanese
     if (/[\uac00-\ud7af]/.test(textToDetect)) return "ko"; // Korean
     if (/[\u0600-\u06FF]/.test(textToDetect)) return "ar"; // Arabic
     if (/[\u0900-\u097F]/.test(textToDetect)) return "hi"; // Hindi
@@ -44,6 +48,10 @@ function detectLanguage(textToDetect) {
     if (/[\u0D00-\u0D7F]/.test(textToDetect)) return "ml"; // Malayalam (India)
     if (/[\u1B80-\u1BBF]/.test(textToDetect)) return "id"; // Indonesian / Malay
     if (/[\u1700-\u171F]/.test(textToDetect)) return "tl"; // Filipino / Tagalog
+    const filipinoScore = countLanguageTerms(["ano", "paano", "saan", "kailan", "bakit", "magkano", "maaari", "pwede", "puwede", "ito", "iyon", "ako", "ikaw", "natin", "ng", "mga", "ang", "ko", "mo"]);
+    const portugueseScore = countLanguageTerms(["como", "onde", "quando", "porque", "qual", "quais", "posso", "pode", "configurar", "definir", "regra", "regras", "atraso", "saída", "saida", "chegada", "funcionário", "funcionario"]);
+    if (portugueseScore >= 1 || /[ãõçáéíóúâêôà]/i.test(textToDetect)) return "pt"; // Portuguese
+    if (filipinoScore >= 2 || /\b(paano|saan|kailan|bakit|magkano|puwede|pwede)\b/.test(normalizedText)) return "tl"; // Filipino / Tagalog in Latin script
     if (/[a-zA-Z]/.test(textToDetect)) return "en"; // English (Latin alphabet fallback)
 
     return "en"; // Default to English

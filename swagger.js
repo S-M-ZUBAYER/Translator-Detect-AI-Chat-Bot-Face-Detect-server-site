@@ -27,6 +27,7 @@ const options = {
             { name: "Thermal Printer", description: "Thermal Printer chatbot" },
             { name: "Power Bank", description: "Power Bank chatbot" },
             { name: "Face Attendance", description: "Face Attendance chatbot" },
+            { name: "Device Face Attendance Machine", description: "Device Face Attendance Machine chatbot" },
             { name: "Unknown Questions", description: "Unanswered chatbot questions CRUD" },
             // ── Face Recognition ─────────────────────────────────────────
             { name: "Employees", description: "Employee management — register, update, delete" },

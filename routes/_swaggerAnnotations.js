@@ -1032,6 +1032,172 @@
  *         description: Error
  */
 
+// ??? Device Face Attendance Machine ?????????????????????????????????????
+
+/**
+ * @swagger
+ * /chatBot/deviceFaceAttendanceMachine/extractText:
+ *   post:
+ *     summary: Extract text from a DOCX file (Device Face Attendance Machine)
+ *     tags: [Device Face Attendance Machine]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [docxFile, category]
+ *             properties:
+ *               docxFile:
+ *                 type: string
+ *                 format: binary
+ *               category:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/FileOperationResponse'
+ *       400:
+ *         description: Missing file or category
+ *       500:
+ *         description: Error
+ *
+ * /chatBot/deviceFaceAttendanceMachine/appendText:
+ *   post:
+ *     summary: Append raw text (Device Face Attendance Machine)
+ *     tags: [Device Face Attendance Machine]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/AppendTextRequest'
+ *     responses:
+ *       200:
+ *         description: Appended
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/FileOperationResponse'
+ *       400:
+ *         description: Missing fields
+ *       500:
+ *         description: Error
+ *
+ * /chatBot/deviceFaceAttendanceMachine/chat/gpt:
+ *   post:
+ *     summary: Chat with the Device Face Attendance Machine GPT assistant
+ *     tags: [Device Face Attendance Machine]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ChatRequest'
+ *     responses:
+ *       200:
+ *         description: GPT response
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ChatResponse'
+ *       400:
+ *         description: Messages required
+ *       500:
+ *         description: OpenAI error
+ *
+ * /chatBot/deviceFaceAttendanceMachine/transcribe:
+ *   post:
+ *     summary: Transcribe audio (Device Face Attendance Machine)
+ *     tags: [Device Face Attendance Machine]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [file, category]
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *               category:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/FileOperationResponse'
+ *       400:
+ *         description: Missing fields
+ *       500:
+ *         description: Error
+ *
+ * /chatBot/deviceFaceAttendanceMachine/analyzeImage:
+ *   post:
+ *     summary: OCR an image (Device Face Attendance Machine)
+ *     tags: [Device Face Attendance Machine]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [image, category]
+ *             properties:
+ *               image:
+ *                 type: string
+ *                 format: binary
+ *               category:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/FileOperationResponse'
+ *       400:
+ *         description: Missing fields
+ *       500:
+ *         description: Error
+ *
+ * /chatBot/deviceFaceAttendanceMachine/analyzePdf:
+ *   post:
+ *     summary: Analyze a PDF (Device Face Attendance Machine)
+ *     tags: [Device Face Attendance Machine]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [pdf, category]
+ *             properties:
+ *               pdf:
+ *                 type: string
+ *                 format: binary
+ *               category:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/FileOperationResponse'
+ *       400:
+ *         description: Missing fields
+ *       500:
+ *         description: Error
+ */
+
+
 // ─── General (Chat.js) ────────────────────────────────────────────────────────
 
 /**

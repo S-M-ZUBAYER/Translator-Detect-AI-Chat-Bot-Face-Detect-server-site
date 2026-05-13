@@ -5,6 +5,13 @@ const bodyParser = require("body-parser");
 const { OpenAIApi, default: OpenAI } = require("openai");
 const fs = require("fs-extra");
 const path = require("path");
+const {
+    extractUrls: extractFaqUrls,
+    getRelevantTextByEmbedding,
+    findRelevantTextForQuestion,
+    rebuildEmbeddingIndex,
+    createConciseSupportContext,
+} = require("../utils/faqEmbeddingHelper");
 const router = express.Router();
 const mammoth = require('mammoth');
 const multer = require('multer');
@@ -33,6 +40,12 @@ const openai = new OpenAI({
 
 const txtFilePath = path.join(__dirname, '/Output/extracted_text.txt');
 let extractedAllText = extractTextFromTXT(txtFilePath);
+const faqOutputDir = path.join(__dirname, "Output");
+const faqEmbeddingConfig = {
+    outputDir: faqOutputDir,
+    productName: "General Chat",
+    productSlug: "general_chat",
+};
 
 function extractTextFromTXT(filePath) {
     try {
@@ -142,31 +155,17 @@ router.post("/chatBot/extract-text", upload.single("docxFile"), async (req, res)
         if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
 
         const outputFilePath = path.join(outputDir, "extracted_text.txt");
-
-        // Read current file (if exists)
-        let currentContent = fs.existsSync(outputFilePath)
-            ? fs.readFileSync(outputFilePath, "utf8")
-            : "";
-
         const sectionHeader = `\n\n===== ${category.toUpperCase()} SECTION =====\n`;
-
-        // Check if section exists
-        const categoryRegex = new RegExp(
-            `===== ${category.toUpperCase()} SECTION =====([\\s\\S]*?)(?=====|$)`,
-            "i"
-        );
-
-        if (categoryRegex.test(currentContent)) {
-            currentContent = currentContent.replace(categoryRegex, (match, p1) => {
-                return `${sectionHeader}${p1.trim()}\n\n${formattedText}`;
-            });
-        } else {
-            currentContent += `${sectionHeader}${formattedText}`;
-        }
+        const currentContent = `${sectionHeader}${formattedText}`;
 
         fs.writeFileSync(outputFilePath, currentContent, "utf8");
 
         extractedAllText = extractTextFromTXT(outputFilePath);
+        try {
+            await rebuildEmbeddingIndex({ ...faqEmbeddingConfig, allText: extractedAllText });
+        } catch (embeddingError) {
+            console.warn(`General Chat embedding rebuild failed:`, embeddingError.message);
+        }
 
         res.json({
             success: true,
@@ -181,7 +180,7 @@ router.post("/chatBot/extract-text", upload.single("docxFile"), async (req, res)
     }
 });
 
-router.post('/chatBot/append-text', (req, res) => {
+router.post('/chatBot/append-text', async (req, res) => {
     const { text, category } = req.body;
 
     if (!text) {
@@ -231,6 +230,11 @@ router.post('/chatBot/append-text', (req, res) => {
 
         // ✅ Reload in-memory text (optional)
         extractedAllText = extractTextFromTXT(outputFilePath);
+        try {
+            await rebuildEmbeddingIndex({ ...faqEmbeddingConfig, allText: extractedAllText });
+        } catch (embeddingError) {
+            console.warn(`General Chat embedding rebuild failed:`, embeddingError.message);
+        }
 
         console.log(`✅ Text appended to ${category.toUpperCase()} section successfully!`);
 
@@ -254,6 +258,13 @@ router.post("/chatBot/chat/gpt", async (req, res) => {
     try {
         const lastUserMsg = [...messages].reverse().find(message => message.role === "user")?.content || "";
         const userLang = detectLanguage(lastUserMsg);
+        const relevantCompanyInfo = await findRelevantTextForQuestion({
+            ...faqEmbeddingConfig,
+            allText: extractedAllText,
+            question: lastUserMsg,
+            detectedLang: userLang,
+        });
+        const relevantLinks = extractFaqUrls(relevantCompanyInfo).slice(0, 5);
         const companyContext = `
 You are a helpful assistant for a brand named Grozziie.
 
@@ -371,10 +382,19 @@ Answer with enough detail to be useful. For normal product or support questions,
 
 `;
 
+        const conciseCompanyContext = createConciseSupportContext({
+            productName: "General Chat",
+            latestUserMessage: lastUserMsg,
+            detectedLang: userLang,
+            relevantText: relevantCompanyInfo,
+            relevantLinks,
+        });
+        console.log(`General Chat selected context chars:`, relevantCompanyInfo.length);
+
         // const response = await openai.chat.completions.create({
         //     model: "gpt-4-turbo",
         //     messages: [
-        //         { role: "system", content: companyContext },
+        //         { role: "system", content: conciseCompanyContext },
         //         ...messages // Inject previous conversation history
         //     ],
         //     max_tokens: 4096,
@@ -387,7 +407,7 @@ Answer with enough detail to be useful. For normal product or support questions,
                 // model: "gpt-5",
                 model: "gpt-4.1-mini",
                 messages: [
-                    { role: "system", content: companyContext },
+                    { role: "system", content: conciseCompanyContext },
                     ...messages,
                 ],
                 // max_completion_tokens: 3000,
@@ -746,6 +766,12 @@ router.post("/chatBot/analyze-pdf", upload.single("pdf"), async (req, res) => {
 
         fs.writeFileSync(outputFilePath, currentContent, "utf8");
         extractedAllText = extractTextFromTXT(outputFilePath);
+        try {
+            await rebuildEmbeddingIndex({ ...faqEmbeddingConfig, allText: extractedAllText });
+        } catch (embeddingError) {
+            console.warn(`General Chat embedding rebuild failed:`, embeddingError.message);
+        }
+
         console.log(`✅ PDF text appended to ${category.toUpperCase()} section successfully!`);
 
         res.json({

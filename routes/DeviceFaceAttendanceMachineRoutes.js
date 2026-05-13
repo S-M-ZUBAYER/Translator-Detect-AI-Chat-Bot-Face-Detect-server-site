@@ -14,8 +14,8 @@ const fs = require("fs-extra");
 const path = require("path");
 const {
     extractUrls: extractFaqUrls,
-    getRelevantTextByKeyword,
     getRelevantTextByEmbedding,
+    getRelevantTextByKeyword,
     findRelevantTextForQuestion,
     rebuildEmbeddingIndex,
     createConciseSupportContext,
@@ -41,14 +41,14 @@ const axios = require("axios");
 const { log } = require("console");
 const pool = require("../config/db");
 
-// ✅ Define centralized path for Manual Attendance Machine data
-const txtFilePath = path.join(__dirname, '/Output/Manual Attendance Machine/extracted_text.txt');
+// ✅ Define centralized path for Device Face Attendance Machine data
+const txtFilePath = path.join(__dirname, '/Output/Device Face Attendance Machine/extracted_text.txt');
 let extractedAllText = extractTextFromTXT(txtFilePath);
-const faqOutputDir = path.join(__dirname, "Output", "Manual Attendance Machine");
+const faqOutputDir = path.join(__dirname, "Output", "Device Face Attendance Machine");
 const faqEmbeddingConfig = {
     outputDir: faqOutputDir,
-    productName: "Manual Attendance Machine",
-    productSlug: "manual_attendance_machine",
+    productName: "Device Face Attendance Machine",
+    productSlug: "device_face_attendance_machine",
 };
 
 function answerMatchesDetectedLanguage(answer, detectedLang) {
@@ -112,7 +112,7 @@ async function translateQuestionForRetrieval(question, detectedLang) {
     return translationResponse?.choices?.[0]?.message?.content?.trim() || "";
 }
 
-router.post("/chatBot/manualAttendanceMachine/extractText", upload.single("docxFile"), async (req, res) => {
+router.post("/chatBot/deviceFaceAttendanceMachine/extractText", upload.single("docxFile"), async (req, res) => {
     try {
         const { category } = req.body;
         if (!req.file) {
@@ -131,7 +131,7 @@ router.post("/chatBot/manualAttendanceMachine/extractText", upload.single("docxF
         const formattedText = `${extractedText}\n\n\n\n\n`;
 
         // ✅ Save text under correct category section in Output/extracted_text.txt
-        const outputDir = path.join(__dirname, "Output", "Manual Attendance Machine");
+        const outputDir = path.join(__dirname, "Output", "Device Face Attendance Machine");
         if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
 
         const outputFilePath = path.join(outputDir, "extracted_text.txt");
@@ -144,7 +144,7 @@ router.post("/chatBot/manualAttendanceMachine/extractText", upload.single("docxF
         try {
             await rebuildEmbeddingIndex({ ...faqEmbeddingConfig, allText: extractedAllText });
         } catch (embeddingError) {
-            console.warn(`Manual Attendance Machine embedding rebuild failed:`, embeddingError.message);
+            console.warn(`Device Face Attendance Machine embedding rebuild failed:`, embeddingError.message);
         }
 
         res.json({
@@ -160,7 +160,7 @@ router.post("/chatBot/manualAttendanceMachine/extractText", upload.single("docxF
     }
 });
 
-router.post('/chatBot/manualAttendanceMachine/appendText', async (req, res) => {
+router.post('/chatBot/deviceFaceAttendanceMachine/appendText', async (req, res) => {
     const { text, category } = req.body;
 
     if (!text) {
@@ -174,7 +174,7 @@ router.post('/chatBot/manualAttendanceMachine/appendText', async (req, res) => {
     console.log("check........");
 
     // ✅ Save text under correct category section in Output/extracted_text.txt
-    const outputDir = path.join(__dirname, "Output", "Manual Attendance Machine");
+    const outputDir = path.join(__dirname, "Output", "Device Face Attendance Machine");
     if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
 
     const outputFilePath = path.join(outputDir, "extracted_text.txt");
@@ -218,7 +218,7 @@ router.post('/chatBot/manualAttendanceMachine/appendText', async (req, res) => {
         try {
             await rebuildEmbeddingIndex({ ...faqEmbeddingConfig, allText: extractedAllText });
         } catch (embeddingError) {
-            console.warn(`Manual Attendance Machine embedding rebuild failed:`, embeddingError.message);
+            console.warn(`Device Face Attendance Machine embedding rebuild failed:`, embeddingError.message);
         }
 
         console.log(`✅ Text appended to ${category.toUpperCase()} section successfully!`);
@@ -233,7 +233,7 @@ router.post('/chatBot/manualAttendanceMachine/appendText', async (req, res) => {
     }
 });
 
-router.post("/chatBot/manualAttendanceMachine/chat/gpt", async (req, res) => {
+router.post("/chatBot/deviceFaceAttendanceMachine/chat/gpt", async (req, res) => {
     const { messages } = req.body; // Now expecting an array of messages
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
@@ -356,7 +356,7 @@ STRICTLY FOLLOW THESE RULES:
    - Do NOT add any extra sentences, introductions, or unrelated text.
    - Never include advertisements or explanations.
 
-- Products: Different kinds of printers like dot printers, Manual manual attendance machines, thermal printers, and so on.
+- Products: Different kinds of printers like dot printers, device face attendance machines, thermal printers, and so on.
 - Motto: "Innovating the future with intelligence."
 
 
@@ -388,7 +388,7 @@ Answer with enough detail to be useful. For normal product or support questions,
 `;
 
         const conciseCompanyContext = createConciseSupportContext({
-            productName: "Manual Attendance Machine",
+            productName: "Device Face Attendance Machine",
             latestUserMessage: lastUserMsg,
             detectedLang: detectedLang,
             relevantText: relevantCompanyInfo,
@@ -400,7 +400,7 @@ Language enforcement:
 - If the detected language hint is "zh", reply only in Simplified Chinese.
 - Use "Boss" for Japanese and all non-Chinese replies.
 `;
-        console.log(`Manual Attendance Machine selected context chars:`, relevantCompanyInfo.length);
+        console.log(`Device Face Attendance Machine selected context chars:`, relevantCompanyInfo.length);
 
         // const response = await openai.chat.completions.create({
         //     model: "gpt-4-turbo",
@@ -426,8 +426,6 @@ Language enforcement:
                 temperature: 0.3,
             });
 
-            console.log("Manual Attendance Machine GPT usage:", response.usage);
-
             const rawAnswer = response?.choices?.[0]?.message?.content?.trim() || "";
 
             // 🔹 Detect AI flag
@@ -451,7 +449,7 @@ Language enforcement:
             if (!hasAnswer) {
                 await pool.query(
                     "INSERT INTO chatbot_unknown_question (question, lang, product) VALUES (?, ?, ?)",
-                    [lastUserMsg, detectedLang, "Manual Attendance Machine"]
+                    [lastUserMsg, detectedLang, "Device Face Attendance Machine"]
                 );
             }
 
@@ -488,7 +486,7 @@ Language enforcement:
     }
 });
 
-router.post("/chatBot/manualAttendanceMachine/transcribe", upload.single("file"), async (req, res) => {
+router.post("/chatBot/deviceFaceAttendanceMachine/transcribe", upload.single("file"), async (req, res) => {
     console.log("🎙️ API called for transcription");
 
     try {
@@ -534,7 +532,7 @@ router.post("/chatBot/manualAttendanceMachine/transcribe", upload.single("file")
         const formattedText = `${aiResponseText}\n\n\n\n\n`;
 
         // ✅ Save text under correct category section in Output/extracted_text.txt
-        const outputDir = path.join(__dirname, "Output", "Manual Attendance Machine");
+        const outputDir = path.join(__dirname, "Output", "Device Face Attendance Machine");
         if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
 
         const outputFile = path.join(outputDir, "extracted_text.txt");
@@ -580,7 +578,7 @@ router.post("/chatBot/manualAttendanceMachine/transcribe", upload.single("file")
     }
 });
 
-router.post("/chatBot/manualAttendanceMachine/analyzeImage", upload.single("image"), async (req, res) => {
+router.post("/chatBot/deviceFaceAttendanceMachine/analyzeImage", upload.single("image"), async (req, res) => {
     console.log("🖼️ API called for image OCR analysis");
 
     let tempDir = null;
@@ -635,7 +633,7 @@ router.post("/chatBot/manualAttendanceMachine/analyzeImage", upload.single("imag
         const formattedText = `${aiResponseText}\n\n\n\n\n`;
 
         // Save text under category in Output/extracted_text.txt
-        const outputDir = path.join(__dirname, "Output", "Manual Attendance Machine");
+        const outputDir = path.join(__dirname, "Output", "Device Face Attendance Machine");
         await fs.ensureDir(outputDir);
 
         const outputFile = path.join(outputDir, "extracted_text.txt");
@@ -680,7 +678,7 @@ router.post("/chatBot/manualAttendanceMachine/analyzeImage", upload.single("imag
     }
 });
 
-router.post("/chatBot/manualAttendanceMachine/analyzePdf", upload.single("pdf"), async (req, res) => {
+router.post("/chatBot/deviceFaceAttendanceMachine/analyzePdf", upload.single("pdf"), async (req, res) => {
     console.log("📄 PDF analysis API called");
 
     let tempDir = null;
@@ -762,7 +760,7 @@ router.post("/chatBot/manualAttendanceMachine/analyzePdf", upload.single("pdf"),
         const fullText = allResponses.join("\n\n").trim();
         const formattedText = `${fullText}\n\n\n\n\n`;
 
-        const outputDir = path.join(__dirname, "Output", "Manual Attendance Machine");
+        const outputDir = path.join(__dirname, "Output", "Device Face Attendance Machine");
         await fs.ensureDir(outputDir);
 
         const outputFilePath = path.join(outputDir, "extracted_text.txt");
@@ -814,4 +812,3 @@ router.post("/chatBot/manualAttendanceMachine/analyzePdf", upload.single("pdf"),
 
 
 module.exports = router;
-
