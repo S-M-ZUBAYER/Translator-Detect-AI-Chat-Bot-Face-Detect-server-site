@@ -314,12 +314,27 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const os = require('os');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./swagger');
 require('dotenv').config();
 
 const app = express();
 const port = process.env.PORT || 5000;
+
+function getLocalIpAddress() {
+  const interfaces = os.networkInterfaces();
+
+  for (const addresses of Object.values(interfaces)) {
+    for (const address of addresses || []) {
+      if (address.family === 'IPv4' && !address.internal) {
+        return address.address;
+      }
+    }
+  }
+
+  return 'localhost';
+}
 
 // ── Core Middleware ────────────────────────────────────────────────────────────
 app.use(cors());
@@ -328,7 +343,53 @@ app.use(express.urlencoded({ extended: true }));
 
 // ── Chatbot DB Middleware (injects req.db for /tht routes) ────────────────────
 const dbMiddleware = require('./middleware/dbMiddleware');
+const chatbotDatabase = require('./config/database');
 app.use(dbMiddleware);
+
+async function ensureUnknownQuestionAnswerColumn() {
+  const [columns] = await chatbotDatabase.query(`
+    SELECT COLUMN_NAME
+    FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'chatbot_unknown_question'
+      AND COLUMN_NAME = 'answer'
+  `);
+
+  if (!columns.length) {
+    await chatbotDatabase.query(`
+      ALTER TABLE chatbot_unknown_question
+      ADD COLUMN answer TEXT NULL AFTER product
+    `);
+    console.log('Unknown question answer column added.');
+  }
+}
+
+ensureUnknownQuestionAnswerColumn().catch(error => {
+  console.warn('Unknown question answer column check failed:', error.message);
+});
+
+async function ensureFaqDraftTable() {
+  await chatbotDatabase.query(`
+    CREATE TABLE IF NOT EXISTS chatbot_faq_draft (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      product VARCHAR(100) NOT NULL,
+      user_email VARCHAR(255) NOT NULL,
+      question TEXT NOT NULL,
+      answer TEXT NOT NULL,
+      variants TEXT NULL,
+      status VARCHAR(20) NOT NULL DEFAULT 'pending',
+      q_id VARCHAR(30) NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      applied_at TIMESTAMP NULL,
+      INDEX idx_faq_draft_user_product_status (user_email, product, status)
+    )
+  `);
+}
+
+ensureFaqDraftTable().catch(error => {
+  console.warn('FAQ draft table check failed:', error.message);
+});
 
 // ── Static uploads (employee face images) ─────────────────────────────────────
 const uploadPath = process.env.UPLOAD_PATH || './public/uploads';
@@ -363,6 +424,7 @@ app.use('/tht', require('./routes/PowerBankRoutes'));
 app.use('/tht', require('./routes/FaceAttendanceRoutes'));
 app.use('/tht', require('./routes/DeviceFaceAttendanceMachineRoutes'));
 app.use('/tht', require('./routes/chatbotUnknownQuestionsRouter'));
+app.use('/tht', require('./routes/faqDraftRoutes'));
 
 // ── Face Recognition Routes  →  /api/... ─────────────────────────────────────
 const { handleMulterError } = require('./middleware/upload');
@@ -435,6 +497,8 @@ process.on('unhandledRejection', (reason) => console.error('Unhandled Rejection:
 
 // ── Start ──────────────────────────────────────────────────────────────────────
 app.listen(port, () => {
+  const localIp = getLocalIpAddress();
+
   console.log(`
 ╔══════════════════════════════════════════════════════════╗
 ║      THT Grozziie — Unified API Server  v2.0.0          ║
@@ -452,6 +516,10 @@ app.listen(port, () => {
 ║    GET   /api/statistics         Stats                  ║
 ╚══════════════════════════════════════════════════════════╝
     `);
+
+  console.log(`LAN Base URL    : http://${localIp}:${port}`);
+  console.log(`LAN Chatbot API : http://${localIp}:${port}/tht`);
+  console.log(`LAN API Docs    : http://${localIp}:${port}/api-docs`);
 });
 
 module.exports = app;

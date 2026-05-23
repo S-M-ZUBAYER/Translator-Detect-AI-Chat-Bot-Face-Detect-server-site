@@ -12,6 +12,8 @@ const {
     rebuildEmbeddingIndex,
     createConciseSupportContext,
 } = require("../utils/faqEmbeddingHelper");
+const { appendFaqItemsToTextFile } = require("../utils/faqBulkAppendHelper");
+const { applyFaqDraftsForProduct } = require("../utils/faqDraftApplyHelper");
 const router = express.Router();
 const mammoth = require('mammoth');
 const multer = require('multer');
@@ -32,6 +34,7 @@ app.use(cors());
 app.use(bodyParser.json());
 const axios = require("axios");
 const { log } = require("console");
+const pool = require("../config/db");
 
 // OpenAI configuration
 const openai = new OpenAI({
@@ -46,6 +49,13 @@ const faqEmbeddingConfig = {
     productName: "General Chat",
     productSlug: "general_chat",
 };
+
+function isDailyChatMessage(message) {
+    const text = (message || "").toLowerCase().trim();
+    if (!text) return false;
+
+    return /\b(hi|hello|hey|good morning|good afternoon|good evening|how are you|how's your day|what are you doing|what's your name|who are you|are you a robot|thank you|thanks|good answer|you are good|you're good|you are smart|you're smart|i like you|do you like me)\b/i.test(text);
+}
 
 function extractTextFromTXT(filePath) {
     try {
@@ -248,6 +258,58 @@ router.post('/chatBot/append-text', async (req, res) => {
     }
 });
 
+router.post("/chatBot/faq/bulkAppend", async (req, res) => {
+    try {
+        const { items, category = "FAQ" } = req.body;
+        const outputDir = path.join(__dirname, "Output");
+        const outputFilePath = path.join(outputDir, "extracted_text.txt");
+        const result = await appendFaqItemsToTextFile({ outputFilePath, category, items });
+
+        if (!result.success) {
+            return res.status(result.status || 400).json({ success: false, message: result.message });
+        }
+
+        extractedAllText = result.allText;
+        await rebuildEmbeddingIndex({ ...faqEmbeddingConfig, allText: extractedAllText });
+
+        return res.json({
+            success: true,
+            message: "FAQ questions added and embeddings updated successfully.",
+            filePath: result.filePath,
+            added: result.added,
+        });
+    } catch (error) {
+        console.error("General Chat FAQ bulk append error:", error.message);
+        return res.status(500).json({ success: false, message: "Failed to bulk append FAQ questions.", error: error.message });
+    }
+});
+
+router.post("/chatBot/faq/applyDrafts", async (req, res) => {
+    try {
+        const { userEmail, ids, category = "FAQ" } = req.body;
+        const outputFilePath = path.join(__dirname, "Output", "extracted_text.txt");
+        const result = await applyFaqDraftsForProduct({
+            db: req.db,
+            product: "General Chat",
+            userEmail,
+            ids,
+            category,
+            outputFilePath,
+            rebuildEmbeddings: allText => rebuildEmbeddingIndex({ ...faqEmbeddingConfig, allText }),
+        });
+
+        if (!result.success) {
+            return res.status(result.status || 400).json({ success: false, message: result.message });
+        }
+
+        extractedAllText = result.allText;
+        return res.json({ success: true, message: "FAQ drafts applied and embeddings updated successfully.", filePath: result.filePath, added: result.added });
+    } catch (error) {
+        console.error("General Chat FAQ draft apply error:", error.message);
+        return res.status(500).json({ success: false, message: "Failed to apply FAQ drafts.", error: error.message });
+    }
+});
+
 router.post("/chatBot/chat/gpt", async (req, res) => {
     const { messages } = req.body; // Now expecting an array of messages
 
@@ -416,6 +478,18 @@ Answer with enough detail to be useful. For normal product or support questions,
             });
 
             const answer = response?.choices?.[0]?.message?.content?.trim();
+            const hasAnswer = !answer?.includes("__HAS_ANSWER__:false");
+
+            if (!hasAnswer && !isDailyChatMessage(lastUserMsg)) {
+                const unknownAnswer = (answer || getFallbackMessage(userLang))
+                    .replace("__HAS_ANSWER__:true", "")
+                    .replace("__HAS_ANSWER__:false", "")
+                    .trim();
+                await pool.query(
+                    "INSERT INTO chatbot_unknown_question (question, lang, product, answer) VALUES (?, ?, ?, ?)",
+                    [lastUserMsg, userLang, "General Chat", unknownAnswer]
+                );
+            }
 
             // 🔹 Use fallback if GPT gave no answer
             if (!answer) {

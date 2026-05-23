@@ -520,7 +520,7 @@ const router = express.Router();
 router.get('/chatBot/unknown-questions', async (req, res) => {
     try {
         const query = `
-            SELECT id, question, lang, product,
+            SELECT id, question, lang, product, answer,
                    DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') as created_at
             FROM chatbot_unknown_question
             ORDER BY created_at DESC
@@ -531,6 +531,66 @@ router.get('/chatBot/unknown-questions', async (req, res) => {
     } catch (error) {
         console.error('Error fetching unknown questions:', error);
         res.status(500).json({ success: false, error: 'Failed to fetch questions', message: error.message });
+    }
+});
+
+router.get('/chatBot/unknown-questions-paginated', async (req, res) => {
+    try {
+        const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+        const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 100);
+        const offset = (page - 1) * limit;
+        const { product, lang, search } = req.query;
+        const conditions = [];
+        const params = [];
+
+        if (product) {
+            conditions.push("product = ?");
+            params.push(String(product).trim());
+        }
+
+        if (lang) {
+            conditions.push("lang = ?");
+            params.push(String(lang).trim());
+        }
+
+        if (search) {
+            conditions.push("(question LIKE ? OR answer LIKE ?)");
+            const searchTerm = `%${String(search).trim()}%`;
+            params.push(searchTerm, searchTerm);
+        }
+
+        const whereClause = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+        const [countRows] = await req.db.query(
+            `SELECT COUNT(*) AS total FROM chatbot_unknown_question ${whereClause}`,
+            params
+        );
+        const total = countRows[0]?.total || 0;
+        const totalPages = Math.max(Math.ceil(total / limit), 1);
+        const [rows] = await req.db.query(
+            `
+            SELECT id, question, lang, product, answer,
+                   DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') AS created_at
+            FROM chatbot_unknown_question
+            ${whereClause}
+            ORDER BY created_at DESC, id DESC
+            LIMIT ? OFFSET ?
+            `,
+            [...params, limit, offset]
+        );
+
+        return res.json({
+            success: true,
+            total,
+            page,
+            limit,
+            totalPages,
+            hasNextPage: page < totalPages,
+            hasPrevPage: page > 1,
+            data: rows,
+        });
+    } catch (error) {
+        console.error('Error fetching paginated unknown questions:', error);
+        return res.status(500).json({ success: false, error: 'Failed to fetch paginated questions', message: error.message });
     }
 });
 
@@ -568,7 +628,7 @@ router.get('/chatBot/unknown-questions/:id', async (req, res) => {
     try {
         const { id } = req.params;
         const query = `
-            SELECT id, question, lang, product,
+            SELECT id, question, lang, product, answer,
                    DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') as created_at
             FROM chatbot_unknown_question
             WHERE id = ?
@@ -617,16 +677,16 @@ router.get('/chatBot/unknown-questions/:id', async (req, res) => {
  */
 router.post('/chatBot/unknown-questions', async (req, res) => {
     try {
-        const { question, lang, product } = req.body;
+        const { question, lang, product, answer } = req.body;
         if (!question) {
             return res.status(400).json({ success: false, error: 'Question is required' });
         }
-        const query = `INSERT INTO chatbot_unknown_question (question, lang, product) VALUES (?, ?, ?)`;
-        const result = await req.db.query(query, [question, lang || 'en', product || 'Face Attendance']);
+        const query = `INSERT INTO chatbot_unknown_question (question, lang, product, answer) VALUES (?, ?, ?, ?)`;
+        const result = await req.db.query(query, [question, lang || 'en', product || 'Face Attendance', answer || null]);
         res.status(201).json({
             success: true,
             message: 'Question added successfully',
-            data: { id: result.insertId, question, lang: lang || 'en', product: product || 'Face Attendance' }
+            data: { id: result.insertId, question, lang: lang || 'en', product: product || 'Face Attendance', answer: answer || null }
         });
     } catch (error) {
         console.error('Error adding question:', error);
@@ -665,7 +725,7 @@ router.post('/chatBot/unknown-questions', async (req, res) => {
 router.put('/chatBot/unknown-questions/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const { question, lang, product } = req.body;
+        const { question, lang, product, answer } = req.body;
 
         const checkQuery = 'SELECT id FROM chatbot_unknown_question WHERE id = ?';
         const existing = await req.db.query(checkQuery, [id]);
@@ -678,6 +738,7 @@ router.put('/chatBot/unknown-questions/:id', async (req, res) => {
         if (question !== undefined) { updateFields.push('question = ?'); updateValues.push(question); }
         if (lang !== undefined) { updateFields.push('lang = ?'); updateValues.push(lang); }
         if (product !== undefined) { updateFields.push('product = ?'); updateValues.push(product); }
+        if (answer !== undefined) { updateFields.push('answer = ?'); updateValues.push(answer); }
         updateFields.push('updated_at = CURRENT_TIMESTAMP');
 
         if (updateFields.length === 1) {
@@ -689,7 +750,7 @@ router.put('/chatBot/unknown-questions/:id', async (req, res) => {
         await req.db.query(updateQuery, updateValues);
 
         const getUpdatedQuery = `
-            SELECT id, question, lang, product,
+            SELECT id, question, lang, product, answer,
                    DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') as created_at,
                    DATE_FORMAT(updated_at, '%Y-%m-%d %H:%i:%s') as updated_at
             FROM chatbot_unknown_question WHERE id = ?
@@ -735,15 +796,15 @@ router.put('/chatBot/unknown-questions/:id', async (req, res) => {
  */
 router.post('/chatBot/unknown-questions/update', async (req, res) => {
     try {
-        const { id, question, lang, product } = req.body;
+        const { id, question, lang, product, answer } = req.body;
         if (!id) return res.status(400).json({ success: false, error: "ID required" });
 
         const updateQuery = `
             UPDATE chatbot_unknown_question
-            SET question = ?, lang = ?, product = ?, updated_at = CURRENT_TIMESTAMP
+            SET question = ?, lang = ?, product = ?, answer = ?, updated_at = CURRENT_TIMESTAMP
             WHERE id = ?
         `;
-        await req.db.query(updateQuery, [question, lang, product, id]);
+        await req.db.query(updateQuery, [question, lang, product, answer || null, id]);
         res.json({ success: true, message: "Question updated successfully" });
     } catch (error) {
         res.status(500).json({ success: false, error: "Update failed" });
@@ -799,7 +860,7 @@ router.patch('/chatBot/unknown-questions/:id', async (req, res) => {
             return res.status(404).json({ success: false, error: 'Question not found' });
         }
 
-        const allowedFields = ['question', 'lang', 'product'];
+        const allowedFields = ['question', 'lang', 'product', 'answer'];
         const updateFields = [];
         const updateValues = [];
         Object.keys(updates).forEach(field => {

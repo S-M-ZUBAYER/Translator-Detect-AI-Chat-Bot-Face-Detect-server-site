@@ -68,6 +68,109 @@ const options = {
                         category: { type: "string", example: "FAQ" },
                     },
                 },
+                BulkFaqItem: {
+                    type: "object",
+                    required: ["question", "answer"],
+                    properties: {
+                        question: { type: "string", example: "How do I reset the device?" },
+                        answer: { type: "string", example: "Press and hold the reset button for 5 seconds." },
+                        variants: {
+                            type: "array",
+                            items: { type: "string" },
+                            example: ["How can I restart the device?", "How to factory reset?"],
+                        },
+                    },
+                },
+                BulkFaqAppendRequest: {
+                    type: "object",
+                    required: ["items"],
+                    properties: {
+                        category: { type: "string", example: "FAQ" },
+                        items: {
+                            type: "array",
+                            items: { $ref: "#/components/schemas/BulkFaqItem" },
+                        },
+                    },
+                },
+                BulkFaqAppendResponse: {
+                    type: "object",
+                    properties: {
+                        success: { type: "boolean", example: true },
+                        message: { type: "string", example: "FAQ questions added and embeddings updated successfully." },
+                        filePath: { type: "string", example: "/routes/Output/Attendance Machine/extracted_text.txt" },
+                        added: {
+                            type: "array",
+                            items: {
+                                type: "object",
+                                properties: {
+                                    id: { type: "string", example: "Q-46" },
+                                    question: { type: "string", example: "How do I reset the device?" },
+                                },
+                            },
+                        },
+                    },
+                },
+                FaqDraft: {
+                    type: "object",
+                    properties: {
+                        id: { type: "integer", example: 1 },
+                        product: { type: "string", example: "Face Attendance" },
+                        userEmail: { type: "string", example: "agent@example.com" },
+                        question: { type: "string", example: "How much is this device?" },
+                        answer: { type: "string", example: "Please contact the seller for price details." },
+                        variants: {
+                            type: "array",
+                            items: { type: "string" },
+                            example: ["What is the price?", "How much does it cost?"],
+                        },
+                        status: { type: "string", example: "pending" },
+                        qId: { type: "string", example: "Q-46" },
+                        createdAt: { type: "string", example: "2026-05-21 10:30:00" },
+                        updatedAt: { type: "string", example: "2026-05-21 10:30:00" },
+                        appliedAt: { type: "string", example: "2026-05-21 10:35:00" },
+                    },
+                },
+                FaqListItem: {
+                    type: "object",
+                    properties: {
+                        id: { type: "string", example: "Q-46" },
+                        question: { type: "string", example: "How do I reset the device?" },
+                        answer: { type: "string", example: "Press and hold the reset button for 5 seconds." },
+                        variants: {
+                            type: "array",
+                            items: { type: "string" },
+                        },
+                    },
+                },
+                CreateFaqDraftRequest: {
+                    type: "object",
+                    required: ["product", "userEmail", "question", "answer"],
+                    properties: {
+                        product: { type: "string", example: "Face Attendance" },
+                        userEmail: { type: "string", example: "agent@example.com" },
+                        question: { type: "string", example: "How much is this device?" },
+                        answer: { type: "string", example: "Please contact the seller for price details." },
+                        variants: {
+                            type: "array",
+                            items: { type: "string" },
+                            example: ["What is the price?", "How much does it cost?"],
+                        },
+                    },
+                },
+                ApplyFaqDraftsRequest: {
+                    type: "object",
+                    required: ["userEmail"],
+                    properties: {
+                        userEmail: { type: "string", example: "agent@example.com" },
+                        category: { type: "string", example: "FAQ" },
+                        ids: {
+                            type: "array",
+                            items: { type: "integer" },
+                            example: [1, 2, 3],
+                            description: "Optional. If omitted, all pending drafts for this user and product are applied.",
+                        },
+                    },
+                },
                 FileOperationResponse: {
                     type: "object",
                     properties: {
@@ -92,6 +195,7 @@ const options = {
                         question: { type: "string", example: "What is the warranty period?" },
                         lang: { type: "string", example: "en" },
                         product: { type: "string", example: "Thermal Printer" },
+                        answer: { type: "string", example: "Sorry boss, I don't have the answer to this question right now." },
                         created_at: { type: "string", example: "2024-01-15 10:30:00" },
                     },
                 },
@@ -102,6 +206,7 @@ const options = {
                         question: { type: "string", example: "What is the warranty period?" },
                         lang: { type: "string", example: "en" },
                         product: { type: "string", example: "Thermal Printer" },
+                        answer: { type: "string", example: "Sorry boss, I don't have the answer to this question right now." },
                     },
                 },
                 StatsResponse: {

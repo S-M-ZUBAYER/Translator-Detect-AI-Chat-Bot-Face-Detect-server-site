@@ -20,6 +20,8 @@ const {
     rebuildEmbeddingIndex,
     createConciseSupportContext,
 } = require("../utils/faqEmbeddingHelper");
+const { appendFaqItemsToTextFile } = require("../utils/faqBulkAppendHelper");
+const { applyFaqDraftsForProduct } = require("../utils/faqDraftApplyHelper");
 const router = express.Router();
 const mammoth = require('mammoth');
 const multer = require('multer');
@@ -50,6 +52,13 @@ const faqEmbeddingConfig = {
     productName: "Attendance Machine",
     productSlug: "attendance_machine",
 };
+
+function isDailyChatMessage(message) {
+    const text = (message || "").toLowerCase().trim();
+    if (!text) return false;
+
+    return /\b(hi|hello|hey|good morning|good afternoon|good evening|how are you|how's your day|what are you doing|what's your name|who are you|are you a robot|thank you|thanks|good answer|you are good|you're good|you are smart|you're smart|i like you|do you like me)\b/i.test(text);
+}
 
 function answerMatchesDetectedLanguage(answer, detectedLang) {
     if (!answer || !detectedLang) return true;
@@ -230,6 +239,58 @@ router.post('/chatBot/attendanceMachine/appendText', async (req, res) => {
     } catch (error) {
         console.error('Append error:', error.message);
         return res.status(500).json({ message: 'Failed to append text.' });
+    }
+});
+
+router.post("/chatBot/attendanceMachine/faq/bulkAppend", async (req, res) => {
+    try {
+        const { items, category = "FAQ" } = req.body;
+        const outputDir = path.join(__dirname, "Output", "Attendance Machine");
+        const outputFilePath = path.join(outputDir, "extracted_text.txt");
+        const result = await appendFaqItemsToTextFile({ outputFilePath, category, items });
+
+        if (!result.success) {
+            return res.status(result.status || 400).json({ success: false, message: result.message });
+        }
+
+        extractedAllText = result.allText;
+        await rebuildEmbeddingIndex({ ...faqEmbeddingConfig, allText: extractedAllText });
+
+        return res.json({
+            success: true,
+            message: "FAQ questions added and embeddings updated successfully.",
+            filePath: result.filePath,
+            added: result.added,
+        });
+    } catch (error) {
+        console.error("Attendance Machine FAQ bulk append error:", error.message);
+        return res.status(500).json({ success: false, message: "Failed to bulk append FAQ questions.", error: error.message });
+    }
+});
+
+router.post("/chatBot/attendanceMachine/faq/applyDrafts", async (req, res) => {
+    try {
+        const { userEmail, ids, category = "FAQ" } = req.body;
+        const outputFilePath = path.join(__dirname, "Output", "Attendance Machine", "extracted_text.txt");
+        const result = await applyFaqDraftsForProduct({
+            db: req.db,
+            product: "Attendance Machine",
+            userEmail,
+            ids,
+            category,
+            outputFilePath,
+            rebuildEmbeddings: allText => rebuildEmbeddingIndex({ ...faqEmbeddingConfig, allText }),
+        });
+
+        if (!result.success) {
+            return res.status(result.status || 400).json({ success: false, message: result.message });
+        }
+
+        extractedAllText = result.allText;
+        return res.json({ success: true, message: "FAQ drafts applied and embeddings updated successfully.", filePath: result.filePath, added: result.added });
+    } catch (error) {
+        console.error("Attendance Machine FAQ draft apply error:", error.message);
+        return res.status(500).json({ success: false, message: "Failed to apply FAQ drafts.", error: error.message });
     }
 });
 
@@ -448,10 +509,11 @@ Language enforcement:
             console.log(hasAnswer, "hasAnswer");
 
             // 🔹 Store only if no answer
-            if (!hasAnswer) {
+            if (!hasAnswer && !isDailyChatMessage(lastUserMsg)) {
+                const unknownAnswer = answer || getFallbackMessage(detectedLang);
                 await pool.query(
-                    "INSERT INTO chatbot_unknown_question (question, lang, product) VALUES (?, ?, ?)",
-                    [lastUserMsg, detectedLang, "Attendance Machine"]
+                    "INSERT INTO chatbot_unknown_question (question, lang, product, answer) VALUES (?, ?, ?, ?)",
+                    [lastUserMsg, detectedLang, "Attendance Machine", unknownAnswer]
                 );
             }
 
