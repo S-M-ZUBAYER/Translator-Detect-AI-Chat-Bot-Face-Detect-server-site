@@ -393,17 +393,15 @@ ensureFaqDraftTable().catch(error => {
 
 async function ensureChatApiHitTable() {
   await chatbotDatabase.query(`
-    CREATE TABLE IF NOT EXISTS chatbot_chat_api_hit (
+    CREATE TABLE IF NOT EXISTS chatbot_chat_daily_count (
       id BIGINT AUTO_INCREMENT PRIMARY KEY,
+      hit_date DATE NOT NULL,
       product VARCHAR(100) NOT NULL,
-      route_path VARCHAR(255) NOT NULL,
-      question TEXT NULL,
-      lang VARCHAR(20) NULL,
-      ip_address VARCHAR(100) NULL,
-      user_agent VARCHAR(500) NULL,
+      total_hits BIGINT NOT NULL DEFAULT 0,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      INDEX idx_chat_hit_date_product (created_at, product),
-      INDEX idx_chat_hit_product (product)
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_chat_daily_product (hit_date, product),
+      INDEX idx_chat_daily_product (product)
     )
   `);
 }

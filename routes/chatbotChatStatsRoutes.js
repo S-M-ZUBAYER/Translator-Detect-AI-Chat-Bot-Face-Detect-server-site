@@ -78,17 +78,17 @@ router.get("/chatBot/chat-stats", async (req, res) => {
         const params = [];
 
         if (date) {
-            conditions.push("DATE(created_at) = ?");
+            conditions.push("hit_date = ?");
             params.push(String(date).trim());
         }
 
         if (startDate) {
-            conditions.push("DATE(created_at) >= ?");
+            conditions.push("hit_date >= ?");
             params.push(String(startDate).trim());
         }
 
         if (endDate) {
-            conditions.push("DATE(created_at) <= ?");
+            conditions.push("hit_date <= ?");
             params.push(String(endDate).trim());
         }
 
@@ -99,17 +99,16 @@ router.get("/chatBot/chat-stats", async (req, res) => {
 
         let query = `
             SELECT
-                DATE_FORMAT(created_at, '%Y-%m-%d') AS date,
+                DATE_FORMAT(hit_date, '%Y-%m-%d') AS date,
                 product,
-                COUNT(*) AS totalHits
-            FROM chatbot_chat_api_hit
+                total_hits AS totalHits
+            FROM chatbot_chat_daily_count
         `;
 
         if (conditions.length) query += ` WHERE ${conditions.join(" AND ")}`;
 
         query += `
-            GROUP BY DATE(created_at), product
-            ORDER BY DATE(created_at) DESC, product ASC
+            ORDER BY hit_date DESC, product ASC
         `;
 
         const [rows] = await req.db.query(query, params);

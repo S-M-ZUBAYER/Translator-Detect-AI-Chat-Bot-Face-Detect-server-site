@@ -1,35 +1,21 @@
-function getRequestIp(req) {
-    return (
-        req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
-        req.socket?.remoteAddress ||
-        req.ip ||
-        null
-    );
-}
-
 function shouldSkipChatSideEffects(req) {
     return req.path.endsWith("/chat/gpt/no-store");
 }
 
-async function recordChatApiHit(req, { product, routePath, question, lang }) {
+async function recordChatApiHit(req, { product }) {
     try {
         if (shouldSkipChatSideEffects(req)) return;
         if (!req.db || typeof req.db.query !== "function") return;
 
         await req.db.query(
             `
-            INSERT INTO chatbot_chat_api_hit
-                (product, route_path, question, lang, ip_address, user_agent)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO chatbot_chat_daily_count (hit_date, product, total_hits)
+            VALUES (CURRENT_DATE, ?, 1)
+            ON DUPLICATE KEY UPDATE
+                total_hits = total_hits + 1,
+                updated_at = CURRENT_TIMESTAMP
             `,
-            [
-                String(product || "").trim(),
-                String(routePath || req.originalUrl || "").trim(),
-                String(question || "").trim().slice(0, 5000) || null,
-                String(lang || "").trim() || null,
-                getRequestIp(req),
-                String(req.headers["user-agent"] || "").slice(0, 500) || null,
-            ]
+            [String(product || "").trim()]
         );
     } catch (error) {
         console.warn("Chat API hit tracking failed:", error.message);
