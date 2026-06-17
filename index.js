@@ -391,6 +391,27 @@ ensureFaqDraftTable().catch(error => {
   console.warn('FAQ draft table check failed:', error.message);
 });
 
+async function ensureChatApiHitTable() {
+  await chatbotDatabase.query(`
+    CREATE TABLE IF NOT EXISTS chatbot_chat_api_hit (
+      id BIGINT AUTO_INCREMENT PRIMARY KEY,
+      product VARCHAR(100) NOT NULL,
+      route_path VARCHAR(255) NOT NULL,
+      question TEXT NULL,
+      lang VARCHAR(20) NULL,
+      ip_address VARCHAR(100) NULL,
+      user_agent VARCHAR(500) NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_chat_hit_date_product (created_at, product),
+      INDEX idx_chat_hit_product (product)
+    )
+  `);
+}
+
+ensureChatApiHitTable().catch(error => {
+  console.warn('Chat API hit table check failed:', error.message);
+});
+
 // ── Static uploads (employee face images) ─────────────────────────────────────
 const uploadPath = process.env.UPLOAD_PATH || './public/uploads';
 app.use('/uploads', express.static(path.join(__dirname, uploadPath)));
@@ -425,6 +446,7 @@ app.use('/tht', require('./routes/FaceAttendanceRoutes'));
 app.use('/tht', require('./routes/DeviceFaceAttendanceMachineRoutes'));
 app.use('/tht', require('./routes/chatbotUnknownQuestionsRouter'));
 app.use('/tht', require('./routes/faqDraftRoutes'));
+app.use('/tht', require('./routes/chatbotChatStatsRoutes'));
 
 // ── Face Recognition Routes  →  /api/... ─────────────────────────────────────
 const { handleMulterError } = require('./middleware/upload');

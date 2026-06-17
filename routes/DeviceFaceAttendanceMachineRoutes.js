@@ -22,6 +22,7 @@ const {
 } = require("../utils/faqEmbeddingHelper");
 const { appendFaqItemsToTextFile } = require("../utils/faqBulkAppendHelper");
 const { applyFaqDraftsForProduct } = require("../utils/faqDraftApplyHelper");
+const { recordChatApiHit, shouldSkipChatSideEffects } = require("../utils/chatApiHitTracker");
 const router = express.Router();
 const mammoth = require('mammoth');
 const multer = require('multer');
@@ -294,7 +295,7 @@ router.post("/chatBot/deviceFaceAttendanceMachine/faq/applyDrafts", async (req, 
     }
 });
 
-router.post("/chatBot/deviceFaceAttendanceMachine/chat/gpt", async (req, res) => {
+router.post(["/chatBot/deviceFaceAttendanceMachine/chat/gpt", "/chatBot/deviceFaceAttendanceMachine/chat/gpt/no-store"], async (req, res) => {
     const { messages } = req.body; // Now expecting an array of messages
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
@@ -303,6 +304,12 @@ router.post("/chatBot/deviceFaceAttendanceMachine/chat/gpt", async (req, res) =>
     // Get the last user message
     const lastUserMsg = messages.filter(msg => msg.role === 'user').pop()?.content || '';
     const detectedLang = detectLanguage(lastUserMsg);
+    recordChatApiHit(req, {
+        product: "Device Face Attendance Machine",
+        routePath: "/chatBot/deviceFaceAttendanceMachine/chat/gpt",
+        question: lastUserMsg,
+        lang: detectedLang,
+    });
 
 
     try {
@@ -507,7 +514,7 @@ Language enforcement:
             console.log(hasAnswer, "hasAnswer");
 
             // 🔹 Store only if no answer
-            if (!hasAnswer && !isDailyChatMessage(lastUserMsg)) {
+            if (!hasAnswer && !isDailyChatMessage(lastUserMsg) && !shouldSkipChatSideEffects(req)) {
                 const unknownAnswer = answer || getFallbackMessage(detectedLang);
                 await pool.query(
                     "INSERT INTO chatbot_unknown_question (question, lang, product, answer) VALUES (?, ?, ?, ?)",

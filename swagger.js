@@ -29,6 +29,7 @@ const options = {
             { name: "Face Attendance", description: "Face Attendance chatbot" },
             { name: "Device Face Attendance Machine", description: "Device Face Attendance Machine chatbot" },
             { name: "Unknown Questions", description: "Unanswered chatbot questions CRUD" },
+            { name: "Chat Statistics", description: "Chatbot question/API hit counts by date and product" },
             // ── Face Recognition ─────────────────────────────────────────
             { name: "Employees", description: "Employee management — register, update, delete" },
             { name: "Face Recognition", description: "Identify employees by face image" },

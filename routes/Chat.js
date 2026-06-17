@@ -14,6 +14,7 @@ const {
 } = require("../utils/faqEmbeddingHelper");
 const { appendFaqItemsToTextFile } = require("../utils/faqBulkAppendHelper");
 const { applyFaqDraftsForProduct } = require("../utils/faqDraftApplyHelper");
+const { recordChatApiHit, shouldSkipChatSideEffects } = require("../utils/chatApiHitTracker");
 const router = express.Router();
 const mammoth = require('mammoth');
 const multer = require('multer');
@@ -310,7 +311,7 @@ router.post("/chatBot/faq/applyDrafts", async (req, res) => {
     }
 });
 
-router.post("/chatBot/chat/gpt", async (req, res) => {
+router.post(["/chatBot/chat/gpt", "/chatBot/chat/gpt/no-store"], async (req, res) => {
     const { messages } = req.body; // Now expecting an array of messages
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
@@ -320,6 +321,12 @@ router.post("/chatBot/chat/gpt", async (req, res) => {
     try {
         const lastUserMsg = [...messages].reverse().find(message => message.role === "user")?.content || "";
         const userLang = detectLanguage(lastUserMsg);
+        recordChatApiHit(req, {
+            product: "General",
+            routePath: "/chatBot/chat/gpt",
+            question: lastUserMsg,
+            lang: userLang,
+        });
         const relevantCompanyInfo = await findRelevantTextForQuestion({
             ...faqEmbeddingConfig,
             allText: extractedAllText,
@@ -480,7 +487,7 @@ Answer with enough detail to be useful. For normal product or support questions,
             const answer = response?.choices?.[0]?.message?.content?.trim();
             const hasAnswer = !answer?.includes("__HAS_ANSWER__:false");
 
-            if (!hasAnswer && !isDailyChatMessage(lastUserMsg)) {
+            if (!hasAnswer && !isDailyChatMessage(lastUserMsg) && !shouldSkipChatSideEffects(req)) {
                 const unknownAnswer = (answer || getFallbackMessage(userLang))
                     .replace("__HAS_ANSWER__:true", "")
                     .replace("__HAS_ANSWER__:false", "")

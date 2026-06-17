@@ -20,6 +20,7 @@ const {
 } = require("../utils/faqEmbeddingHelper");
 const { appendFaqItemsToTextFile } = require("../utils/faqBulkAppendHelper");
 const { applyFaqDraftsForProduct } = require("../utils/faqDraftApplyHelper");
+const { recordChatApiHit, shouldSkipChatSideEffects } = require("../utils/chatApiHitTracker");
 const router = express.Router();
 const mammoth = require('mammoth');
 const multer = require('multer');
@@ -602,7 +603,7 @@ router.post("/chatBot/faceAttendance/faq/applyDrafts", async (req, res) => {
     }
 });
 
-router.post("/chatBot/faceAttendance/chat/gpt", async (req, res) => {
+router.post(["/chatBot/faceAttendance/chat/gpt", "/chatBot/faceAttendance/chat/gpt/no-store"], async (req, res) => {
     const { messages } = req.body; // Now expecting an array of messages
 
 
@@ -612,6 +613,12 @@ router.post("/chatBot/faceAttendance/chat/gpt", async (req, res) => {
     // Get the last user message
     const lastUserMsg = messages.filter(msg => msg.role === 'user').pop()?.content || '';
     const detectedLang = detectLanguage(lastUserMsg);
+    recordChatApiHit(req, {
+        product: "Face Attendance",
+        routePath: "/chatBot/faceAttendance/chat/gpt",
+        question: lastUserMsg,
+        lang: detectedLang,
+    });
     try {
         const relevantCompanyInfo = await findRelevantTextForQuestion({
             ...faqEmbeddingConfig,
@@ -832,7 +839,7 @@ ${relevantLinks.length ? relevantLinks.join("\n") : "No relevant URLs found."}
             answer = await rewriteAnswerInDetectedLanguage(answer, detectedLang, lastUserMsg);
 
             // 🔹 Store only if no answer
-            if (!hasAnswer && !isDailyChatMessage(lastUserMsg)) {
+            if (!hasAnswer && !isDailyChatMessage(lastUserMsg) && !shouldSkipChatSideEffects(req)) {
                 const unknownAnswer = answer || getFallbackMessage(detectedLang);
                 await pool.query(
                     "INSERT INTO chatbot_unknown_question (question, lang, product, answer) VALUES (?, ?, ?, ?)",
