@@ -208,6 +208,48 @@
  *       200:
  *         description: FAQ drafts applied and embeddings updated
  *
+ * /chatBot/warehouseErp/faq/applyDrafts:
+ *   post:
+ *     summary: Apply pending FAQ drafts (Warehouse ERP)
+ *     tags: [Warehouse ERP]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ApplyFaqDraftsRequest'
+ *     responses:
+ *       200:
+ *         description: FAQ drafts applied and embeddings updated
+ *
+ * /chatBot/warehouseErpAppSite/faq/applyDrafts:
+ *   post:
+ *     summary: Apply pending FAQ drafts (Warehouse ERP App Site)
+ *     tags: [Warehouse ERP App Site]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ApplyFaqDraftsRequest'
+ *     responses:
+ *       200:
+ *         description: FAQ drafts applied and embeddings updated
+ *
+ * /chatBot/faceAttendanceWebsite/faq/applyDrafts:
+ *   post:
+ *     summary: Apply pending FAQ drafts (Face Attendance Website)
+ *     tags: [Face Attendance Website]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ApplyFaqDraftsRequest'
+ *     responses:
+ *       200:
+ *         description: FAQ drafts applied and embeddings updated
+ *
  * /chatBot/deviceFaceAttendanceMachine/faq/applyDrafts:
  *   post:
  *     summary: Apply pending FAQ drafts (Device Face Attendance Machine)

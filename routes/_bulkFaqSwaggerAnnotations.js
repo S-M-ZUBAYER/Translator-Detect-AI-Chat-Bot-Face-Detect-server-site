@@ -161,6 +161,75 @@
  *       500:
  *         description: Failed to bulk append FAQ questions
  *
+ * /chatBot/warehouseErp/faq/bulkAppend:
+ *   post:
+ *     summary: Bulk append FAQ question-answer pairs (Warehouse ERP)
+ *     description: Appends multiple FAQ question-answer pairs, automatically assigns Q numbers, and rebuilds embeddings.
+ *     tags: [Warehouse ERP]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/BulkFaqAppendRequest'
+ *     responses:
+ *       200:
+ *         description: FAQ questions added and embeddings updated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/BulkFaqAppendResponse'
+ *       400:
+ *         description: At least one valid question and answer is required
+ *       500:
+ *         description: Failed to bulk append FAQ questions
+ *
+ * /chatBot/warehouseErpAppSite/faq/bulkAppend:
+ *   post:
+ *     summary: Bulk append FAQ question-answer pairs (Warehouse ERP App Site)
+ *     description: Appends multiple FAQ question-answer pairs, automatically assigns Q numbers, and rebuilds embeddings.
+ *     tags: [Warehouse ERP App Site]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/BulkFaqAppendRequest'
+ *     responses:
+ *       200:
+ *         description: FAQ questions added and embeddings updated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/BulkFaqAppendResponse'
+ *       400:
+ *         description: At least one valid question and answer is required
+ *       500:
+ *         description: Failed to bulk append FAQ questions
+ *
+ * /chatBot/faceAttendanceWebsite/faq/bulkAppend:
+ *   post:
+ *     summary: Bulk append FAQ question-answer pairs (Face Attendance Website)
+ *     description: Appends multiple FAQ question-answer pairs, automatically assigns Q numbers, and rebuilds embeddings.
+ *     tags: [Face Attendance Website]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/BulkFaqAppendRequest'
+ *     responses:
+ *       200:
+ *         description: FAQ questions added and embeddings updated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/BulkFaqAppendResponse'
+ *       400:
+ *         description: At least one valid question and answer is required
+ *       500:
+ *         description: Failed to bulk append FAQ questions
+ *
  * /chatBot/deviceFaceAttendanceMachine/faq/bulkAppend:
  *   post:
  *     summary: Bulk append FAQ question-answer pairs (Device Face Attendance Machine)

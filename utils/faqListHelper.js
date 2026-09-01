@@ -9,6 +9,9 @@ const PRODUCT_FAQ_FILES = {
     "Thermal Printer": path.join(__dirname, "..", "routes", "Output", "Thermal Printer", "extracted_text.txt"),
     "Power Bank": path.join(__dirname, "..", "routes", "Output", "Power Bank", "extracted_text.txt"),
     "Face Attendance": path.join(__dirname, "..", "routes", "Output", "Face Attendance", "extracted_text.txt"),
+    "Warehouse ERP": path.join(__dirname, "..", "routes", "Output", "Warehouse ERP", "extracted_text.txt"),
+    "Warehouse ERP App Site": path.join(__dirname, "..", "routes", "Output", "Warehouse ERP App Site", "extracted_text.txt"),
+    "Face Attendance Website": path.join(__dirname, "..", "routes", "Output", "Face Attendance Website", "extracted_text.txt"),
     "Device Face Attendance Machine": path.join(__dirname, "..", "routes", "Output", "Device Face Attendance Machine", "extracted_text.txt"),
 };
 

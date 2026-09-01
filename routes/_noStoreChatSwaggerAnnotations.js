@@ -126,6 +126,60 @@
  *             schema:
  *               $ref: '#/components/schemas/ChatResponse'
  *
+ * /chatBot/warehouseErp/chat/gpt/no-store:
+ *   post:
+ *     summary: Chat with the Warehouse ERP GPT assistant without storing unknown questions or counting hits
+ *     tags: [Warehouse ERP]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ChatRequest'
+ *     responses:
+ *       200:
+ *         description: GPT response
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ChatResponse'
+ *
+ * /chatBot/warehouseErpAppSite/chat/gpt/no-store:
+ *   post:
+ *     summary: Chat with the Warehouse ERP App Site GPT assistant without storing unknown questions or counting hits
+ *     tags: [Warehouse ERP App Site]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ChatRequest'
+ *     responses:
+ *       200:
+ *         description: GPT response
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ChatResponse'
+ *
+ * /chatBot/faceAttendanceWebsite/chat/gpt/no-store:
+ *   post:
+ *     summary: Chat with the Face Attendance Website GPT assistant without storing unknown questions or counting hits
+ *     tags: [Face Attendance Website]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ChatRequest'
+ *     responses:
+ *       200:
+ *         description: GPT response
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ChatResponse'
+ *
  * /chatBot/deviceFaceAttendanceMachine/chat/gpt/no-store:
  *   post:
  *     summary: Chat with the Device Face Attendance Machine GPT assistant without storing unknown questions or counting hits

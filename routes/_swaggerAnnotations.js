@@ -1032,6 +1032,501 @@
  *         description: Error
  */
 
+// Warehouse ERP
+
+/**
+ * @swagger
+ * /chatBot/warehouseErp/extractText:
+ *   post:
+ *     summary: Extract text from a DOCX file (Warehouse ERP)
+ *     tags: [Warehouse ERP]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [docxFile, category]
+ *             properties:
+ *               docxFile:
+ *                 type: string
+ *                 format: binary
+ *               category:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/FileOperationResponse'
+ *       400:
+ *         description: Missing file or category
+ *       500:
+ *         description: Error
+ *
+ * /chatBot/warehouseErp/appendText:
+ *   post:
+ *     summary: Append raw text (Warehouse ERP)
+ *     tags: [Warehouse ERP]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/AppendTextRequest'
+ *     responses:
+ *       200:
+ *         description: Appended
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/FileOperationResponse'
+ *       400:
+ *         description: Missing fields
+ *       500:
+ *         description: Error
+ *
+ * /chatBot/warehouseErp/chat/gpt:
+ *   post:
+ *     summary: Chat with the Warehouse ERP GPT assistant
+ *     tags: [Warehouse ERP]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ChatRequest'
+ *     responses:
+ *       200:
+ *         description: GPT response
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ChatResponse'
+ *       400:
+ *         description: Messages required
+ *       500:
+ *         description: OpenAI error
+ *
+ * /chatBot/warehouseErp/transcribe:
+ *   post:
+ *     summary: Transcribe audio (Warehouse ERP)
+ *     tags: [Warehouse ERP]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [file, category]
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *               category:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/FileOperationResponse'
+ *       400:
+ *         description: Missing fields
+ *       500:
+ *         description: Error
+ *
+ * /chatBot/warehouseErp/analyzeImage:
+ *   post:
+ *     summary: OCR an image (Warehouse ERP)
+ *     tags: [Warehouse ERP]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [image, category]
+ *             properties:
+ *               image:
+ *                 type: string
+ *                 format: binary
+ *               category:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/FileOperationResponse'
+ *       400:
+ *         description: Missing fields
+ *       500:
+ *         description: Error
+ *
+ * /chatBot/warehouseErp/analyzePdf:
+ *   post:
+ *     summary: Analyze a PDF (Warehouse ERP)
+ *     tags: [Warehouse ERP]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [pdf, category]
+ *             properties:
+ *               pdf:
+ *                 type: string
+ *                 format: binary
+ *               category:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/FileOperationResponse'
+ *       400:
+ *         description: Missing fields
+ *       500:
+ *         description: Error
+ */
+
+// Warehouse ERP App Site
+
+/**
+ * @swagger
+ * /chatBot/warehouseErpAppSite/extractText:
+ *   post:
+ *     summary: Extract text from a DOCX file (Warehouse ERP App Site)
+ *     tags: [Warehouse ERP App Site]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [docxFile, category]
+ *             properties:
+ *               docxFile:
+ *                 type: string
+ *                 format: binary
+ *               category:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/FileOperationResponse'
+ *       400:
+ *         description: Missing file or category
+ *       500:
+ *         description: Error
+ *
+ * /chatBot/warehouseErpAppSite/appendText:
+ *   post:
+ *     summary: Append raw text (Warehouse ERP App Site)
+ *     tags: [Warehouse ERP App Site]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/AppendTextRequest'
+ *     responses:
+ *       200:
+ *         description: Appended
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/FileOperationResponse'
+ *       400:
+ *         description: Missing fields
+ *       500:
+ *         description: Error
+ *
+ * /chatBot/warehouseErpAppSite/chat/gpt:
+ *   post:
+ *     summary: Chat with the Warehouse ERP App Site GPT assistant
+ *     tags: [Warehouse ERP App Site]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ChatRequest'
+ *     responses:
+ *       200:
+ *         description: GPT response
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ChatResponse'
+ *       400:
+ *         description: Messages required
+ *       500:
+ *         description: OpenAI error
+ *
+ * /chatBot/warehouseErpAppSite/transcribe:
+ *   post:
+ *     summary: Transcribe audio (Warehouse ERP App Site)
+ *     tags: [Warehouse ERP App Site]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [file, category]
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *               category:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/FileOperationResponse'
+ *       400:
+ *         description: Missing fields
+ *       500:
+ *         description: Error
+ *
+ * /chatBot/warehouseErpAppSite/analyzeImage:
+ *   post:
+ *     summary: OCR an image (Warehouse ERP App Site)
+ *     tags: [Warehouse ERP App Site]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [image, category]
+ *             properties:
+ *               image:
+ *                 type: string
+ *                 format: binary
+ *               category:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/FileOperationResponse'
+ *       400:
+ *         description: Missing fields
+ *       500:
+ *         description: Error
+ *
+ * /chatBot/warehouseErpAppSite/analyzePdf:
+ *   post:
+ *     summary: Analyze a PDF (Warehouse ERP App Site)
+ *     tags: [Warehouse ERP App Site]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [pdf, category]
+ *             properties:
+ *               pdf:
+ *                 type: string
+ *                 format: binary
+ *               category:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/FileOperationResponse'
+ *       400:
+ *         description: Missing fields
+ *       500:
+ *         description: Error
+ */
+
+// Face Attendance Website
+
+/**
+ * @swagger
+ * /chatBot/faceAttendanceWebsite/extractText:
+ *   post:
+ *     summary: Extract text from a DOCX file (Face Attendance Website)
+ *     tags: [Face Attendance Website]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [docxFile, category]
+ *             properties:
+ *               docxFile:
+ *                 type: string
+ *                 format: binary
+ *               category:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/FileOperationResponse'
+ *       400:
+ *         description: Missing file or category
+ *       500:
+ *         description: Error
+ *
+ * /chatBot/faceAttendanceWebsite/appendText:
+ *   post:
+ *     summary: Append raw text (Face Attendance Website)
+ *     tags: [Face Attendance Website]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/AppendTextRequest'
+ *     responses:
+ *       200:
+ *         description: Appended
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/FileOperationResponse'
+ *       400:
+ *         description: Missing fields
+ *       500:
+ *         description: Error
+ *
+ * /chatBot/faceAttendanceWebsite/chat/gpt:
+ *   post:
+ *     summary: Chat with the Face Attendance Website GPT assistant
+ *     tags: [Face Attendance Website]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ChatRequest'
+ *     responses:
+ *       200:
+ *         description: GPT response
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ChatResponse'
+ *       400:
+ *         description: Messages required
+ *       500:
+ *         description: OpenAI error
+ *
+ * /chatBot/faceAttendanceWebsite/transcribe:
+ *   post:
+ *     summary: Transcribe audio (Face Attendance Website)
+ *     tags: [Face Attendance Website]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [file, category]
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *               category:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/FileOperationResponse'
+ *       400:
+ *         description: Missing fields
+ *       500:
+ *         description: Error
+ *
+ * /chatBot/faceAttendanceWebsite/analyzeImage:
+ *   post:
+ *     summary: OCR an image (Face Attendance Website)
+ *     tags: [Face Attendance Website]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [image, category]
+ *             properties:
+ *               image:
+ *                 type: string
+ *                 format: binary
+ *               category:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/FileOperationResponse'
+ *       400:
+ *         description: Missing fields
+ *       500:
+ *         description: Error
+ *
+ * /chatBot/faceAttendanceWebsite/analyzePdf:
+ *   post:
+ *     summary: Analyze a PDF (Face Attendance Website)
+ *     tags: [Face Attendance Website]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [pdf, category]
+ *             properties:
+ *               pdf:
+ *                 type: string
+ *                 format: binary
+ *               category:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/FileOperationResponse'
+ *       400:
+ *         description: Missing fields
+ *       500:
+ *         description: Error
+ */
+
 // ??? Device Face Attendance Machine ?????????????????????????????????????
 
 /**
