@@ -19,6 +19,7 @@ const options = {
         tags: [
             // ── After-Sales ──────────────────────────────────────────────
             { name: "Health", description: "Server & database health checks" },
+            { name: "Codex Bridge REST", description: "REST gateway to the outbound-connected local Codex agent" },
             { name: "Detect", description: "Company field extraction from raw text" },
             { name: "Translate", description: "Text translation via GPT" },
             { name: "Chat (General)", description: "General after-sales chatbot" },
@@ -40,6 +41,14 @@ const options = {
             { name: "Statistics", description: "Employee & recognition statistics" },
         ],
         components: {
+            securitySchemes: {
+                BridgeApiKey: {
+                    type: "apiKey",
+                    in: "header",
+                    name: "X-Bridge-Key",
+                    description: "Client key configured as CLIENT_API_KEY for the Codex bridge.",
+                },
+            },
             schemas: {
                 // ── Chatbot shared ────────────────────────────────────────────
                 ChatMessage: {

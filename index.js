@@ -318,9 +318,12 @@ const os = require('os');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./swagger');
 require('dotenv').config();
+const { createCodexBridge } = require('./codexBridge');
+const { createMessagesChatRouter } = require('./codexBridge/messagesChatRoute');
 
 const app = express();
 const port = process.env.PORT || 5000;
+const codexBridge = createCodexBridge();
 
 function getLocalIpAddress() {
   const interfaces = os.networkInterfaces();
@@ -447,11 +450,19 @@ app.use('/tht', require('./routes/FaceAttendanceWebsiteRoutes'));
 app.use('/tht', require('./routes/DeviceFaceAttendanceMachineRoutes'));
 app.use('/tht', require('./routes/chatbotUnknownQuestionsRouter'));
 app.use('/tht', require('./routes/faqDraftRoutes'));
+app.use('/tht', require('./routes/multilingualFaqRoutes'));
 app.use('/tht', require('./routes/chatbotChatStatsRoutes'));
 
 // ── Face Recognition Routes  →  /api/... ─────────────────────────────────────
 const { handleMulterError } = require('./middleware/upload');
 app.use('/tht/faceRecognize', require('./routes/api'));
+
+// Isolated hosted-to-local Codex bridge routes.
+app.use('/api', createMessagesChatRouter({
+  hub: codexBridge.hub,
+  config: codexBridge.config,
+}));
+app.use('/api', codexBridge.router);
 
 // ── Health Check ───────────────────────────────────────────────────────────────
 /**
@@ -519,7 +530,7 @@ process.on('uncaughtException', (err) => console.error('Uncaught Exception:', er
 process.on('unhandledRejection', (reason) => console.error('Unhandled Rejection:', reason));
 
 // ── Start ──────────────────────────────────────────────────────────────────────
-app.listen(port, () => {
+const server = app.listen(port, () => {
   const localIp = getLocalIpAddress();
 
   console.log(`
@@ -544,5 +555,7 @@ app.listen(port, () => {
   console.log(`LAN Chatbot API : http://${localIp}:${port}/tht`);
   console.log(`LAN API Docs    : http://${localIp}:${port}/api-docs`);
 });
+
+codexBridge.attach(server);
 
 module.exports = app;

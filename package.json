@@ -37,6 +37,7 @@
     "start": "^5.1.0",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
-    "uuidv4": "^6.2.13"
+    "uuidv4": "^6.2.13",
+    "ws": "^8.18.3"
   }
 }
