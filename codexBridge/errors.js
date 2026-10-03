@@ -27,7 +27,17 @@ function errorMiddleware(error, req, res, next) {
     return res.status(413).json({
       error: {
         code: 'FILE_TOO_LARGE',
-        message: 'The DOCX exceeds the configured upload limit.',
+        message: 'The uploaded file exceeds the configured size limit.',
+      },
+      requestId: req.id,
+    });
+  }
+
+  if (error?.name === 'MulterError') {
+    return res.status(400).json({
+      error: {
+        code: 'INVALID_MULTIPART_UPLOAD',
+        message: 'The multipart upload has unexpected or excessive fields.',
       },
       requestId: req.id,
     });

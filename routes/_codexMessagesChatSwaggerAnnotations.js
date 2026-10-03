@@ -32,6 +32,10 @@
  *               content: Boss, open the Purchase module and select Purchase Order.
  *             - role: user
  *               content: What information do I need to enter next?
+ *         productId:
+ *           type: string
+ *           example: warehouse-erp-web
+ *           description: Hosted product registry ID; its active knowledge version is used.
  *
  *     CodexMessagesChatResponse:
  *       type: object
@@ -43,6 +47,20 @@
  *         lang:
  *           type: string
  *           example: en
+ *         status:
+ *           type: string
+ *           example: answered
+ *         sources:
+ *           type: array
+ *           items: { type: object, additionalProperties: true }
+ *         resources:
+ *           type: array
+ *           items:
+ *             type: object
+ *             properties:
+ *               type: { type: string, enum: [image, video, link] }
+ *               url: { type: string, format: uri }
+ *               title: { type: string }
  *
  * /api/codex/chat/gpt:
  *   servers:

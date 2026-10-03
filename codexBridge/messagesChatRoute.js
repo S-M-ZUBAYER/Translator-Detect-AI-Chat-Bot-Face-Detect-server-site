@@ -2,6 +2,11 @@ const { randomUUID, timingSafeEqual } = require('crypto');
 const { Router } = require('express');
 const { detectLanguage } = require('./detectLanguage');
 const { HttpError, asyncHandler, errorMiddleware } = require('./errors');
+const { safeResources, safeSources } = require('./responseSanitizer');
+const {
+  createProductRegistry,
+  LEGACY_PRODUCT_ID,
+} = require('./productRegistry');
 const { relayForClient } = require('./routes');
 
 const MAX_MESSAGES = 21;
@@ -100,7 +105,11 @@ function createOriginGuard(frontendOrigins) {
   };
 }
 
-function createMessagesChatRouter({ hub, config }) {
+function createMessagesChatRouter({
+  hub,
+  config,
+  registry = createProductRegistry(),
+}) {
   const router = Router();
 
   router.post(
@@ -128,6 +137,13 @@ function createMessagesChatRouter({ hub, config }) {
       const question = messages[messages.length - 1].content;
       const history = messages.slice(0, -1);
       const lang = detectLanguage(question);
+      const productId = typeof req.body?.productId === 'string'
+        ? req.body.productId.trim()
+        : LEGACY_PRODUCT_ID;
+      const product = registry.get(productId);
+      if (!product) {
+        throw new HttpError(400, 'INVALID_PRODUCT', 'productId is not supported.');
+      }
 
       const data = await relayForClient(req, res, (signal) =>
         hub.request(
@@ -136,6 +152,8 @@ function createMessagesChatRouter({ hub, config }) {
             message: question,
             history,
             useDocuments: true,
+            productId: product.id,
+            knowledgeVersion: product.knowledgeVersion,
           },
           { signal },
         ),
@@ -152,6 +170,13 @@ function createMessagesChatRouter({ hub, config }) {
       res.json({
         answer: data.answer.trim(),
         lang,
+        ...(Array.isArray(data.sources)
+          ? { sources: safeSources(data.sources) }
+          : {}),
+        ...(Array.isArray(data.resources)
+          ? { resources: safeResources(data.resources) }
+          : {}),
+        ...(typeof data.status === 'string' ? { status: data.status } : {}),
       });
     }),
   );

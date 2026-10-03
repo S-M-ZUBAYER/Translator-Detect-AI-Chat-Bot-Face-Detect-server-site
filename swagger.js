@@ -48,6 +48,12 @@ const options = {
                     name: "X-Bridge-Key",
                     description: "Client key configured as CLIENT_API_KEY for the Codex bridge.",
                 },
+                ConversationToken: {
+                    type: "apiKey",
+                    in: "header",
+                    name: "X-Conversation-Token",
+                    description: "Private token returned when a product-locked Codex Bridge conversation is created.",
+                },
             },
             schemas: {
                 // ── Chatbot shared ────────────────────────────────────────────
@@ -442,6 +448,7 @@ const options = {
         "./index.js",
         "./routes/_swaggerAnnotations.js",
         "./routes/_faceSwaggerAnnotations.js",
+        "./codexBridge/*.js",
     ],
 };
 

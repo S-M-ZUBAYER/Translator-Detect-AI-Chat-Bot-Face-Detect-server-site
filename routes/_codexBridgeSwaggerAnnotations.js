@@ -34,6 +34,12 @@
  *         filename:
  *           type: string
  *           example: Store Manual.docx
+ *         productId:
+ *           type: string
+ *           example: thermal-printer
+ *         knowledgeVersion:
+ *           type: string
+ *           example: '1'
  *         size:
  *           type: integer
  *           example: 245760
@@ -102,6 +108,14 @@
  *             type: string
  *             format: uuid
  *           example: [12345678-1234-1234-1234-123456789abc]
+ *         productId:
+ *           type: string
+ *           example: thermal-printer
+ *           description: Product collection selected by the hosted registry.
+ *         knowledgeVersion:
+ *           type: string
+ *           example: '1'
+ *           description: Must match the product's active hosted knowledge version.
  *
  *     CodexBridgeSource:
  *       type: object
@@ -221,6 +235,13 @@
  *     tags: [Codex Bridge REST]
  *     security:
  *       - BridgeApiKey: []
+ *     parameters:
+ *       - in: query
+ *         name: productId
+ *         schema: { type: string, example: thermal-printer }
+ *       - in: query
+ *         name: knowledgeVersion
+ *         schema: { type: string, example: '1' }
  *     responses:
  *       '200':
  *         description: Local document list
@@ -258,6 +279,12 @@
  *                 type: string
  *                 format: binary
  *                 description: DOCX file, limited by MAX_DOCX_BYTES (5 MB by default).
+ *               productId:
+ *                 type: string
+ *                 example: thermal-printer
+ *               knowledgeVersion:
+ *                 type: string
+ *                 example: '1'
  *     responses:
  *       '201':
  *         description: Document transferred to and indexed by the local agent
@@ -331,6 +358,12 @@
  *               file:
  *                 type: string
  *                 format: binary
+ *               productId:
+ *                 type: string
+ *                 example: thermal-printer
+ *               knowledgeVersion:
+ *                 type: string
+ *                 example: '1'
  *     responses:
  *       '200':
  *         description: Document replaced and re-indexed
@@ -368,6 +401,13 @@
  *     tags: [Codex Bridge REST]
  *     security:
  *       - BridgeApiKey: []
+ *     parameters:
+ *       - in: query
+ *         name: productId
+ *         schema: { type: string, example: thermal-printer }
+ *       - in: query
+ *         name: knowledgeVersion
+ *         schema: { type: string, example: '1' }
  *     responses:
  *       '204':
  *         description: Document deleted

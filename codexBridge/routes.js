@@ -1,7 +1,10 @@
 const { randomUUID, timingSafeEqual } = require('crypto');
 const { Router } = require('express');
 const multer = require('multer');
+const { createConversationRouter } = require('./conversationRoutes');
 const { HttpError, asyncHandler, errorMiddleware } = require('./errors');
+const { safeResources, safeSources } = require('./responseSanitizer');
+const { LEGACY_PRODUCT_ID } = require('./productRegistry');
 
 const DOCUMENT_ID_PATTERN = /^[a-f0-9-]{36}$/;
 
@@ -73,6 +76,27 @@ function validateDocumentIds(value) {
   return [...new Set(value)];
 }
 
+function resolveProduct(registry, value, requestedVersion) {
+  const productId = typeof value === 'string' && value.trim()
+    ? value.trim()
+    : LEGACY_PRODUCT_ID;
+  const product = registry.get(productId);
+  if (!product) {
+    throw new HttpError(400, 'INVALID_PRODUCT', 'productId is not supported.');
+  }
+  if (
+    requestedVersion !== undefined
+    && String(requestedVersion).trim() !== product.knowledgeVersion
+  ) {
+    throw new HttpError(
+      409,
+      'KNOWLEDGE_VERSION_MISMATCH',
+      'The requested knowledge version is not active for this product.',
+    );
+  }
+  return product;
+}
+
 function createOriginGuard(frontendOrigins) {
   return function guardBridgeOrigin(req, res, next) {
     const origin = req.get('Origin');
@@ -109,15 +133,22 @@ async function relayForClient(req, res, operation) {
   }
 }
 
-function createApiRouter({ hub, config }) {
+function createApiRouter({
+  hub,
+  config,
+  registry,
+  store,
+  answerQueue,
+  mediaQueue,
+}) {
   const router = Router();
   const upload = multer({
     storage: multer.memoryStorage(),
     limits: {
       fileSize: config.maxFileBytes,
       files: 1,
-      fields: 0,
-      parts: 2,
+      fields: 2,
+      parts: 4,
     },
     fileFilter: (_req, file, callback) => {
       if (!file.originalname.toLowerCase().endsWith('.docx')) {
@@ -170,11 +201,35 @@ function createApiRouter({ hub, config }) {
     });
   });
 
+  router.use(
+    '/codex/v1',
+    createConversationRouter({
+      hub,
+      config,
+      registry,
+      store,
+      answerQueue,
+      mediaQueue,
+    }),
+  );
+
   router.get(
     '/documents',
     asyncHandler(async (req, res) => {
+      const product = resolveProduct(
+        registry,
+        req.query.productId,
+        req.query.knowledgeVersion,
+      );
       const data = await relayForClient(req, res, (signal) =>
-        hub.request('list_files', {}, { signal }),
+        hub.request(
+          'list_files',
+          {
+            productId: product.id,
+            knowledgeVersion: product.knowledgeVersion,
+          },
+          { signal },
+        ),
       );
       res.json({ ...data, requestId: req.id });
     }),
@@ -191,10 +246,17 @@ function createApiRouter({ hub, config }) {
           'Upload one DOCX using the file field.',
         );
       }
+      const product = resolveProduct(
+        registry,
+        req.body?.productId,
+        req.body?.knowledgeVersion,
+      );
 
       const data = await relayForClient(req, res, (signal) =>
         hub.upload(req.file.buffer, req.file.originalname, undefined, {
           signal,
+          productId: product.id,
+          knowledgeVersion: product.knowledgeVersion,
         }),
       );
       res.status(201).json({ ...data, requestId: req.id });
@@ -215,10 +277,17 @@ function createApiRouter({ hub, config }) {
           'Upload one DOCX using the file field.',
         );
       }
+      const product = resolveProduct(
+        registry,
+        req.body?.productId,
+        req.body?.knowledgeVersion,
+      );
 
       const data = await relayForClient(req, res, (signal) =>
         hub.upload(req.file.buffer, req.file.originalname, req.params.id, {
           signal,
+          productId: product.id,
+          knowledgeVersion: product.knowledgeVersion,
         }),
       );
       res.json({ ...data, requestId: req.id });
@@ -231,9 +300,22 @@ function createApiRouter({ hub, config }) {
       if (!DOCUMENT_ID_PATTERN.test(req.params.id)) {
         throw new HttpError(400, 'INVALID_DOCUMENT_ID', 'Invalid document ID.');
       }
+      const product = resolveProduct(
+        registry,
+        req.query.productId,
+        req.query.knowledgeVersion,
+      );
 
       await relayForClient(req, res, (signal) =>
-        hub.request('delete_file', { fileId: req.params.id }, { signal }),
+        hub.request(
+          'delete_file',
+          {
+            fileId: req.params.id,
+            productId: product.id,
+            knowledgeVersion: product.knowledgeVersion,
+          },
+          { signal },
+        ),
       );
       res.status(204).end();
     }),
@@ -265,6 +347,11 @@ function createApiRouter({ hub, config }) {
           'useDocuments must be true or false.',
         );
       }
+      const product = resolveProduct(
+        registry,
+        body.productId,
+        body.knowledgeVersion,
+      );
 
       const data = await relayForClient(req, res, (signal) =>
         hub.request(
@@ -274,11 +361,19 @@ function createApiRouter({ hub, config }) {
             useDocuments: body.useDocuments,
             history: validateHistory(body.history),
             documentIds: validateDocumentIds(body.documentIds),
+            productId: product.id,
+            knowledgeVersion: product.knowledgeVersion,
           },
           { signal },
         ),
       );
-      res.json({ ...data, requestId: req.id });
+      const { sources, resources, ...answer } = data || {};
+      res.json({
+        ...answer,
+        sources: safeSources(sources),
+        resources: safeResources(resources),
+        requestId: req.id,
+      });
     }),
   );
 

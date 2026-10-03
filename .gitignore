@@ -20,6 +20,7 @@ dataFiles/
 # Logs and OS/editor files
 *.log
 npm-debug.log*
+iisnode/*.txt
 .DS_Store
 Thumbs.db
 .vscode/

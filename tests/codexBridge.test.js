@@ -1,5 +1,8 @@
 const assert = require('node:assert/strict');
+const { mkdtemp, rm } = require('node:fs/promises');
 const http = require('node:http');
+const os = require('node:os');
+const path = require('node:path');
 const { test } = require('node:test');
 const express = require('express');
 const { EventEmitter } = require('node:events');
@@ -83,7 +86,7 @@ class FakeAgentSocket extends EventEmitter {
   }
 
   send(value) {
-    this.sent.push(JSON.parse(value));
+    this.sent.push(Buffer.isBuffer(value) ? Buffer.from(value) : JSON.parse(value));
   }
 
   ping() {}
@@ -163,7 +166,71 @@ test('client cancellation is forwarded to the same agent socket', async () => {
   );
 });
 
+test('media analysis streams identified chunks and resolves the matching result', async () => {
+  const config = {
+    agentSecret: 'test-agent-secret-123456789',
+    defaultAgentId: 'primary',
+    requestTimeoutMs: 2000,
+    uploadChunkBytes: 16 * 1024,
+    heartbeatMs: 5000,
+  };
+  const hub = new AgentHub(config);
+  const socket = new FakeAgentSocket();
+  hub.onConnection(socket, undefined, { agentId: 'primary' });
+  const bytes = Buffer.from('local-only-image-evidence');
+  const pending = hub.analyzeMedia(
+    [
+      {
+        fileId: 'frame-1',
+        kind: 'frame',
+        name: 'frame.jpg',
+        mimeType: 'image/jpeg',
+        timestampMs: 1250,
+        buffer: bytes,
+      },
+    ],
+    {
+      productId: 'thermal-printer',
+      knowledgeVersion: '1',
+      attachmentId: '12345678-1234-4234-9234-123456789abc',
+    },
+  );
+  const start = socket.sent.find((message) => message.type === 'analyze_media_start');
+  assert.equal(start.productId, 'thermal-printer');
+  assert.equal(start.files[0].timestampMs, 1250);
+  assert.equal(start.files[0].size, bytes.length);
+  assert.equal(start.files[0].mime, 'image/jpeg');
+
+  hub.handleAgentMessage(socket, {
+    type: 'analyze_media_ready',
+    requestId: start.requestId,
+  });
+  const binary = socket.sent.find(Buffer.isBuffer);
+  const frame = decodeBinaryFrame(binary);
+  assert.equal(frame.header.type, 'media_chunk');
+  assert.equal(frame.header.fileId, 'frame-1');
+  assert.deepEqual(frame.payload, bytes);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.ok(
+    socket.sent.some(
+      (message) => message.type === 'analyze_media_complete'
+        && message.requestId === start.requestId,
+    ),
+  );
+
+  hub.handleAgentMessage(socket, {
+    type: 'analyze_media_result',
+    requestId: start.requestId,
+    ok: true,
+    data: { summary: 'Paper warning is visible.' },
+  });
+  assert.deepEqual(await pending, { summary: 'Paper warning is visible.' });
+});
+
 test('Codex bridge relays REST chat and DOCX operations without affecting existing routes', async () => {
+  const conversationDirectory = await mkdtemp(
+    path.join(os.tmpdir(), 'codex-bridge-legacy-test-'),
+  );
   const config = {
     frontendOrigins: ['*'],
     clientApiKey: 'test-client-key-123456789',
@@ -173,6 +240,7 @@ test('Codex bridge relays REST chat and DOCX operations without affecting existi
     maxFileBytes: 1024 * 1024,
     uploadChunkBytes: 16 * 1024,
     heartbeatMs: 5000,
+    conversationDirectory,
   };
   const bridge = createCodexBridge({ config });
   const app = express();
@@ -356,7 +424,16 @@ test('Codex bridge relays REST chat and DOCX operations without affecting existi
         type: 'ask_result',
         requestId: ask.requestId,
         ok: true,
-        data: { answer: 'The document says the test passed.' },
+        data: {
+          answer: 'The document says the test passed.',
+          sources: [
+            { sourceId: 'S1', title: 'Store Manual', excerpt: 'Test passed.' },
+          ],
+          resources: [
+            { type: 'image', url: 'https://example.com/guide.png', title: 'Guide' },
+            { type: 'link', url: 'javascript:alert(1)', title: 'Unsafe' },
+          ],
+        },
       }),
     );
 
@@ -364,6 +441,9 @@ test('Codex bridge relays REST chat and DOCX operations without affecting existi
     const chatBody = await chatResponse.json();
     assert.equal(chatResponse.status, 200);
     assert.equal(chatBody.answer, 'The document says the test passed.');
+    assert.equal(chatBody.sources.length, 1);
+    assert.equal(chatBody.resources.length, 1);
+    assert.equal(chatBody.resources[0].url, 'https://example.com/guide.png');
     assert.match(chatBody.requestId, /^[a-f0-9-]{36}$/);
 
     const docxBytes = Buffer.from('PK\u0003\u0004test-docx-content', 'utf8');
@@ -405,8 +485,10 @@ test('Codex bridge relays REST chat and DOCX operations without affecting existi
         requestId: uploadStart.requestId,
         ok: true,
         data: {
-          id: '12345678-1234-1234-1234-123456789abc',
-          filename: 'Store Manual.docx',
+          document: {
+            id: '12345678-1234-1234-1234-123456789abc',
+            filename: 'Store Manual.docx',
+          },
         },
       }),
     );
@@ -414,7 +496,8 @@ test('Codex bridge relays REST chat and DOCX operations without affecting existi
     const uploadResponse = await uploadPromise;
     const uploadBody = await uploadResponse.json();
     assert.equal(uploadResponse.status, 201);
-    assert.equal(uploadBody.filename, 'Store Manual.docx');
+    assert.equal(uploadBody.document.filename, 'Store Manual.docx');
+    const documentId = uploadBody.document.id;
 
     const listPromise = fetch(`${httpBase}/api/documents`, {
       headers: bridgeHeaders,
@@ -426,7 +509,9 @@ test('Codex bridge relays REST chat and DOCX operations without affecting existi
         requestId: listFiles.requestId,
         ok: true,
         data: {
-          documents: [{ id: uploadBody.id, filename: uploadBody.filename }],
+          documents: [
+            { id: documentId, filename: uploadBody.document.filename },
+          ],
         },
       }),
     );
@@ -449,13 +534,13 @@ test('Codex bridge relays REST chat and DOCX operations without affecting existi
       }),
       'Replacement.docx',
     );
-    const replacePromise = fetch(`${httpBase}/api/documents/${uploadBody.id}`, {
+    const replacePromise = fetch(`${httpBase}/api/documents/${documentId}`, {
       method: 'PUT',
       headers: bridgeHeaders,
       body: replacementForm,
     });
     const replaceStart = await agent.inbox.waitForJson('upload_start');
-    assert.equal(replaceStart.replaceId, uploadBody.id);
+    assert.equal(replaceStart.replaceId, documentId);
     agent.socket.send(
       JSON.stringify({
         type: 'upload_ready',
@@ -472,19 +557,24 @@ test('Codex bridge relays REST chat and DOCX operations without affecting existi
         type: 'upload_result',
         requestId: replaceStart.requestId,
         ok: true,
-        data: { id: uploadBody.id, filename: 'Replacement.docx' },
+        data: {
+          document: { id: documentId, filename: 'Replacement.docx' },
+        },
       }),
     );
     const replaceResponse = await replacePromise;
     assert.equal(replaceResponse.status, 200);
-    assert.equal((await replaceResponse.json()).filename, 'Replacement.docx');
+    assert.equal(
+      (await replaceResponse.json()).document.filename,
+      'Replacement.docx',
+    );
 
-    const deletePromise = fetch(`${httpBase}/api/documents/${uploadBody.id}`, {
+    const deletePromise = fetch(`${httpBase}/api/documents/${documentId}`, {
       method: 'DELETE',
       headers: bridgeHeaders,
     });
     const deleteFile = await agent.inbox.waitForJson('delete_file');
-    assert.equal(deleteFile.fileId, uploadBody.id);
+    assert.equal(deleteFile.fileId, documentId);
     agent.socket.send(
       JSON.stringify({
         type: 'delete_file_result',
@@ -545,5 +635,6 @@ test('Codex bridge relays REST chat and DOCX operations without affecting existi
     agent?.socket.terminate();
     bridge.close();
     await closeServer(server);
+    await rm(conversationDirectory, { recursive: true, force: true });
   }
 });

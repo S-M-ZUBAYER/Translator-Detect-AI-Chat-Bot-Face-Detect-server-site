@@ -23,12 +23,33 @@ function sendJson(socket, value) {
   socket.send(JSON.stringify(value));
 }
 
+function sendBinary(socket, value) {
+  if (socket.readyState !== WebSocket.OPEN) {
+    return Promise.reject(
+      new HttpError(503, 'AGENT_OFFLINE', 'The local Codex agent is not connected.'),
+    );
+  }
+  if (socket.send.length < 3) {
+    socket.send(value, { binary: true });
+    return Promise.resolve();
+  }
+  return new Promise((resolve, reject) => {
+    socket.send(value, { binary: true }, (error) =>
+      error ? reject(error) : resolve(),
+    );
+  });
+}
+
 class AgentHub {
   constructor(config) {
     this.config = config;
     this.webSocketServer = new WebSocketServer({
       noServer: true,
-      maxPayload: config.uploadChunkBytes + 4096,
+      // Binary upload chunks are small, while bounded JSON answer/media
+      // results may legitimately be larger than a single chunk.
+      maxPayload:
+        config.agentMaxMessageBytes
+        || Math.max(config.uploadChunkBytes + 4096, 2 * 1024 * 1024),
       perMessageDeflate: false,
     });
     this.agents = new Map();
@@ -197,7 +218,10 @@ class AgentHub {
     const pending = this.pending.get(requestId);
     if (!pending || pending.socket !== socket) return;
 
-    if (message.type === 'upload_ready') {
+    if (
+      message.type === 'upload_ready'
+      || message.type === 'analyze_media_ready'
+    ) {
       pending.onReady?.();
       return;
     }
@@ -346,7 +370,12 @@ class AgentHub {
     buffer,
     filename,
     replaceId,
-    { agentId = this.config.defaultAgentId, signal } = {},
+    {
+      agentId = this.config.defaultAgentId,
+      signal,
+      productId,
+      knowledgeVersion,
+    } = {},
   ) {
     const socket = this.getSocket(agentId);
     const requestId = randomUUID();
@@ -447,7 +476,129 @@ class AgentHub {
           size: buffer.length,
           sha256,
           chunks,
+          ...(productId ? { productId } : {}),
+          ...(knowledgeVersion ? { knowledgeVersion } : {}),
           ...(replaceId ? { replaceId } : {}),
+        });
+      } catch (error) {
+        pending.reject(error);
+      }
+    });
+  }
+
+  analyzeMedia(
+    files,
+    metadata,
+    { agentId = this.config.defaultAgentId, signal } = {},
+  ) {
+    const socket = this.getSocket(agentId);
+    const requestId = randomUUID();
+    const chunkBytes = this.config.uploadChunkBytes;
+    const normalizedFiles = files.map((file) => {
+      if (!Buffer.isBuffer(file.buffer) || !file.buffer.length) {
+        throw new TypeError('Every media analysis file must contain bytes.');
+      }
+      return {
+        fileId: file.fileId || randomUUID(),
+        kind: file.kind,
+        name: file.name,
+        mime: file.mime || file.mimeType,
+        timestampMs: file.timestampMs,
+        buffer: file.buffer,
+        size: file.buffer.length,
+        sha256: createHash('sha256').update(file.buffer).digest('hex'),
+        chunks: Math.ceil(file.buffer.length / chunkBytes),
+      };
+    });
+
+    return new Promise((resolve, reject) => {
+      let sent = false;
+      let timer;
+      let settled = false;
+      const cleanup = () => {
+        clearTimeout(timer);
+        signal?.removeEventListener('abort', onAbort);
+        if (this.pending.get(requestId) === pending) {
+          this.pending.delete(requestId);
+        }
+      };
+      const finish = (callback, value) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        callback(value);
+      };
+      const onAbort = () => {
+        this.cancel(socket, requestId);
+        finish(
+          reject,
+          new HttpError(
+            499,
+            'MEDIA_ANALYSIS_CANCELLED',
+            'Media analysis was cancelled.',
+          ),
+        );
+      };
+      const pending = {
+        agentId,
+        socket,
+        resolve: (value) => finish(resolve, value),
+        reject: (error) => finish(reject, error),
+      };
+
+      timer = setTimeout(() => {
+        this.cancel(socket, requestId);
+        pending.reject(
+          new HttpError(
+            504,
+            'MEDIA_ANALYSIS_TIMEOUT',
+            'The local agent did not finish media analysis in time.',
+          ),
+        );
+      }, this.config.requestTimeoutMs);
+      timer.unref?.();
+
+      const sendFiles = async () => {
+        if (sent) return;
+        sent = true;
+        try {
+          for (const file of normalizedFiles) {
+            for (let index = 0; index < file.chunks; index += 1) {
+              const start = index * chunkBytes;
+              await sendBinary(
+                socket,
+                encodeBinaryFrame(
+                  {
+                    type: 'media_chunk',
+                    requestId,
+                    fileId: file.fileId,
+                    index,
+                  },
+                  file.buffer.subarray(
+                    start,
+                    Math.min(file.size, start + chunkBytes),
+                  ),
+                ),
+              );
+            }
+          }
+          sendJson(socket, { type: 'analyze_media_complete', requestId });
+        } catch (error) {
+          pending.reject(error);
+        }
+      };
+
+      pending.onReady = () => void sendFiles().catch(pending.reject);
+      this.pending.set(requestId, pending);
+      signal?.addEventListener('abort', onAbort, { once: true });
+      if (signal?.aborted) return onAbort();
+
+      try {
+        sendJson(socket, {
+          type: 'analyze_media_start',
+          requestId,
+          ...metadata,
+          files: normalizedFiles.map(({ buffer, ...file }) => file),
         });
       } catch (error) {
         pending.reject(error);
